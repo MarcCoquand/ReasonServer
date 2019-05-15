@@ -2,11 +2,11 @@
 'use strict';
 
 var Curry = require("bs-platform/lib/js/curry.js");
-var Response$MyNewProject = require("./Response.bs.js");
+var Server$MyNewProject = require("./Server.bs.js");
 
 function parseJson(parser, body) {
-  return Response$MyNewProject.fromOption(Curry._1(parser, body), /* Status400 */0, "Invalid JSON format.", undefined, body);
+  return Server$MyNewProject.$$Response[/* fromOption */5](Curry._1(parser, body), /* Status400 */0, "Invalid JSON format.", undefined, body);
 }
 
 exports.parseJson = parseJson;
-/* Response-MyNewProject Not a pure module */
+/* Server-MyNewProject Not a pure module */

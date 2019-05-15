@@ -1,5 +1,5 @@
 {
-  "name": "my-new-project",
+  "name": "cause",
   "version": "0.1.0",
   "scripts": {
     "build": "bsb -make-world",
@@ -12,8 +12,11 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@glennsl/bs-jest": "^0.4.8",
+    "bs-jsverify": "^0.10.0",
     "bs-platform": "^5.0.4"
   },
   "dependencies": {
+    "@glennsl/bs-json": "^3.0.0"
   }
 }

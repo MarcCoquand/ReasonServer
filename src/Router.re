@@ -7,7 +7,8 @@ type route('a, 'b) =
   | Slash(route('a, 'b), route('b, 'c)): route('a, 'c)
   | Map('a, route('a, 'b)): route('b => 'c, 'c)
   | Integer: route(int => 'a, 'a)
-  | OneOf(list(route('a, 'b))): route('a, 'b);
+  | OneOf(list(route('a, 'b))): route('a, 'b)
+  | IsMethod(HttpMethod.t): route('a => 'b, 'b);
 
 let top = Top;
 
@@ -18,6 +19,18 @@ let int = Integer;
 let text = (f: string => 'a) => Custom(f);
 
 let custom = (f: string => option('a)): route('a => 'b, 'b) => Custom(f);
+
+let get = IsMethod(HttpMethod.GET);
+let post = IsMethod(HttpMethod.POST);
+let delete = IsMethod(HttpMethod.DELETE);
+let put = IsMethod(HttpMethod.PUT);
+let update = IsMethod(HttpMethod.UPDATE);
+let delete = IsMethod(HttpMethod.DELETE);
+let head = IsMethod(HttpMethod.HEAD);
+let opt = IsMethod(HttpMethod.OPTION);
+let connect = IsMethod(HttpMethod.CONNECT);
+let trace = IsMethod(HttpMethod.TRACE);
+let patch = IsMethod(HttpMethod.PATCH);
 
 let (-/-) = (f, g): route('a, 'c) => Slash(f, g);
 
@@ -35,6 +48,7 @@ type state('a) = {
   offset: int,
   length: int,
   value: 'a,
+  method: HttpMethod.t,
 };
 
 let mapHelp = (func, state) => {...state, value: func(state.value)};
@@ -79,16 +93,7 @@ let rec chompIntHelp = (url, offset, length, n) =>
   } else {
     let word = url.[offset];
     switch (word) {
-    | '0'
-    | '1'
-    | '2'
-    | '3'
-    | '4'
-    | '5'
-    | '6'
-    | '7'
-    | '8'
-    | '9' =>
+    | '0'..'9' =>
       chompIntHelp(url, offset + 1, length - 1, n * 10 + int_of_char(word))
     | '/' => (offset + 1, length - 1, n)
     | _ => (offset, length, n)
@@ -118,7 +123,7 @@ let rec chompSegment = (url, offset, length) =>
     chompSegment(url, offset + 1, length - 1);
   };
 
-let rec attempt: type a b. route(a, b) => state(a) => list(state(b)) =
+let rec attempt: type a b. (route(a, b), state(a)) => list(state(b)) =
   (route, state) =>
     switch (route) {
     | Top =>
@@ -152,6 +157,13 @@ let rec attempt: type a b. route(a, b) => state(a) => list(state(b)) =
           },
         ];
       };
+
+    | IsMethod(ofType) =>
+      if (state.method == ofType) {
+        [state];
+      } else {
+        [];
+      }
 
     | Custom(checker) =>
       let (endOffset, newOffset, newLength) =
@@ -205,4 +217,3 @@ let parse = (route: route('a => 'a, 'a), path) => {
     ),
   );
 };
-let serve = (path, router): option('a) => parse(router, path);
