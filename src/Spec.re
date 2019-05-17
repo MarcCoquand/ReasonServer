@@ -10,6 +10,7 @@ type t('a, 'b) =
   | Integer: t(int => 'a, 'a)
   | OneOf(list(t('a, 'b))): t('a, 'b)
   | Method(HttpMethod.t): t('a, 'a)
+  | Body(string => option('a)): t('a => 'b, 'b)
   | Optional(string, string => option('a)): t(option('a) => 'b, 'b);
 
 type querySet = Belt.Map.String.t(string);
@@ -20,13 +21,15 @@ type state('a) = {
   value: 'a,
   queries: option(querySet),
   method: HttpMethod.t,
+  body: string,
 };
 let tap = (str, value) => {
   Js.log2(str ++ ": ", value);
   value;
 };
+
 //------------------------------------------------------------------------------
-// MAPPERS
+// HELPERS
 let mapHelp = (func, state) =>
   {...state, value: func(state.value)}
   |> (
@@ -87,7 +90,8 @@ let rec chompSegment = (url, offset, length) =>
 
 //------------------------------------------------------------------------------
 // CHOMP QUERIES
-// Query parameters are unordered while argument list is ordered
+// Query parameters are unordered while argument list is ordered. Thus we parse
+// all the parameters and check if they contain each.
 let rec chompQueries = (url, offset, length, set): querySet => {
   let (endOffsetKey, offsetKey, lengthKey) =
     chompSegment(url, offset, length);
@@ -174,6 +178,11 @@ let rec attempt: type a b. (t(a, b), state(a)) => list(state(b)) =
           },
         ];
       };
+    | Body(parser) =>
+      switch (parser(state.body)) {
+      | Some(result) => [{...state, value: state.value(result)}]
+      | None => []
+      }
 
     | Optional(str, parse) =>
       let queries =
@@ -258,7 +267,7 @@ let rec parseHelp = states => {
     }
   };
 };
-let parseUrl = (route: t('a => 'a, 'a), method, path) => {
+let parse = (route: t('a => 'a, 'a), method, path, body) => {
   let id: type a. a => a = a => a;
   let firstDropped = String.sub(path, 1, String.length(path) - 1);
   parseHelp(
@@ -271,6 +280,7 @@ let parseUrl = (route: t('a => 'a, 'a), method, path) => {
         method,
         value: id,
         queries: None,
+        body,
       },
     ),
   );
@@ -287,6 +297,7 @@ let parseString = (route: t('a => 'b, 'b), path) => {
         method: HttpMethod.GET,
         value: id,
         queries: None,
+        body: "",
       },
     ),
   );
@@ -307,10 +318,16 @@ let custom = (f: string => option('a)): t('a => 'b, 'b) => Custom(f);
 let (>-) = (f, g): t('a, 'c) => Slash(f, g);
 let map = (toMap: 'a, route: t('a, 'b)): t('b => 'c, 'c) =>
   Map(toMap, route);
+"user";
 let oneOf = (l: list(t('a, 'b))) => OneOf(l);
-// Associativity is Left
+
+// Left associative operator. Use when you don't care about http method
 let (==>) = (route: t('a, 'b), handler: 'a): t('b => 'c, 'c) =>
   Map(handler, route);
+
+let jsonBody = (parser: Js.Json.t => 'a) =>
+  Body(str => Belt.Option.map(Json.parse(str), parser));
+
 // let (<&>) = (route, (str, f)) =>
 //   Slash(
 //     Slash(route, Optional(str, value => parseString(f, value))),
@@ -325,12 +342,21 @@ let query = (str, f) => Optional(str, value => parseString(f, value));
 // ROUTER HTTP METHOD COMBINATORS
 let get = (handler, route) =>
   Map(handler, Slash(Method(HttpMethod.GET), route));
-let post = Method(HttpMethod.POST);
-let delete = Method(HttpMethod.DELETE);
-let put = Method(HttpMethod.PUT);
-let update = Method(HttpMethod.UPDATE);
-let methodHead = Method(HttpMethod.HEAD);
-let methodOption = Method(HttpMethod.OPTION);
-let methodConnect = Method(HttpMethod.CONNECT);
-let methodTrace = Method(HttpMethod.TRACE);
-let patch = Method(HttpMethod.PATCH);
+let post = (handler, route) =>
+  Map(handler, Slash(Method(HttpMethod.POST), route));
+let delete = (handler, route) =>
+  Map(handler, Slash(Method(HttpMethod.DELETE), route));
+let put = (handler, route) =>
+  Map(handler, Slash(Method(HttpMethod.PUT), route));
+let update = (handler, route) =>
+  Map(handler, Slash(Method(HttpMethod.UPDATE), route));
+let methodHead = (handler, route) =>
+  Map(handler, Slash(Method(HttpMethod.HEAD), route));
+let methodOption = (handler, route) =>
+  Map(handler, Slash(Method(HttpMethod.OPTION), route));
+let methodConnect = (handler, route) =>
+  Map(handler, Slash(Method(HttpMethod.CONNECT), route));
+let methodTrace = (handler, route) =>
+  Map(handler, Slash(Method(HttpMethod.TRACE), route));
+let patch = (handler, route) =>
+  Map(handler, Slash(Method(HttpMethod.PATCH), route));

@@ -1,5 +1,5 @@
 open Jest;
-open Router;
+open Spec;
 
 type identity =
   | Arrived;
@@ -16,24 +16,24 @@ type containsText =
 type branch =
   | First
   | Second;
-type idRouter = Router.t(identity => identity, identity);
-type branchRouter = Router.t(branch => branch, branch);
-type hasIntRouter = Router.t(containsInt => containsInt, containsInt);
-type hasStringRouter = Router.t(containsText => containsText, containsText);
-type optionalRouter = Router.t(optionals => optionals, optionals);
-type queriesRouter = Router.t(multiOpts => multiOpts, multiOpts);
-let primitiveParse = (str, router) => parseUrl(router, HttpMethod.GET, str);
-let isRouter: idRouter = is("hello") ==> Arrived;
-let topRouter: idRouter = top ==> Arrived;
-let intRouter: hasIntRouter = int ==> (i => ArrivedWithInt(i));
-let textRouter: hasStringRouter = text ==> (s => ArrivedWithString(s));
-let slashRouter: idRouter = is("hello") >- is("world") ==> Arrived;
-let oneOfRouter: branchRouter =
+type idSpec = Spec.t(identity => identity, identity);
+type branchSpec = Spec.t(branch => branch, branch);
+type hasIntSpec = Spec.t(containsInt => containsInt, containsInt);
+type hasStringSpec = Spec.t(containsText => containsText, containsText);
+type optionalSpec = Spec.t(optionals => optionals, optionals);
+type queriesSpec = Spec.t(multiOpts => multiOpts, multiOpts);
+let primitiveParse = (str, spec) => parse(spec, HttpMethod.GET, str, "");
+let isSpec: idSpec = is("hello") ==> Arrived;
+let topSpec: idSpec = top ==> Arrived;
+let intSpec: hasIntSpec = int ==> (i => ArrivedWithInt(i));
+let textSpec: hasStringSpec = text ==> (s => ArrivedWithString(s));
+let slashSpec: idSpec = is("hello") >- is("world") ==> Arrived;
+let oneOfSpec: branchSpec =
   oneOf([is("hello") ==> First, is("world") ==> Second]);
-let getRouter: idRouter = is("world") |> get(Arrived);
-let queryRouter: optionalRouter =
+let getSpec: idSpec = is("world") |> get(Arrived);
+let querySpec: optionalSpec =
   query("hello", text) ==> (s => ArrivedWithOptional(s));
-let queriesRouter: queriesRouter =
+let queriesSpec: queriesSpec =
   query("hello", text)
   >- query("world", text)
   ==> ((s1, s2) => ArrivedWithOptionals(s1, s2));
@@ -66,67 +66,68 @@ describe("Chompers chomp", () => {
     })
   );
 });
+
 describe("Parses primitives", () => {
   Expect.(
-    test("is", () =>
-      expect(primitiveParse("/hello", isRouter)) |> toBe(Some(Arrived))
+    test("top", () =>
+      expect(primitiveParse("/", topSpec)) |> toBe(Some(Arrived))
     )
   );
   Expect.(
-    test("top", () =>
-      expect(primitiveParse("/", topRouter)) |> toBe(Some(Arrived))
+    test("is", () =>
+      expect(primitiveParse("/hello", isSpec)) |> toBe(Some(Arrived))
     )
   );
   Expect.(
     test("text", () =>
-      expect(primitiveParse("/hello", textRouter))
+      expect(primitiveParse("/hello", textSpec))
       |> toEqual(Some(ArrivedWithString("hello")))
     )
   );
 
   Expect.(
     test("slash", () =>
-      expect(primitiveParse("/hello/world", slashRouter))
+      expect(primitiveParse("/hello/world", slashSpec))
       |> toBe(Some(Arrived))
     )
   );
   Expect.(
     test("int", () =>
-      expect(primitiveParse("/5", intRouter))
+      expect(primitiveParse("/5", intSpec))
       |> toEqual(Some(ArrivedWithInt(5)))
     )
   );
   Expect.(
     test("oneOf first branch", () =>
-      expect(primitiveParse("/hello", oneOfRouter)) |> toBe(Some(First))
+      expect(primitiveParse("/hello", oneOfSpec)) |> toBe(Some(First))
     )
   );
   Expect.(
     test("oneOf second branch", () =>
-      expect(primitiveParse("/world", oneOfRouter)) |> toBe(Some(Second))
+      expect(primitiveParse("/world", oneOfSpec)) |> toBe(Some(Second))
     )
   );
 
   Expect.(
     test("httpmethods", () =>
-      expect(primitiveParse("/world", getRouter)) |> toBe(Some(Arrived))
+      expect(primitiveParse("/world", getSpec)) |> toBe(Some(Arrived))
     )
   );
   Expect.(
     test("query", () =>
-      expect(primitiveParse("?hello=damn", queryRouter))
+      expect(primitiveParse("?hello=damn", querySpec))
       |> toEqual(Some(ArrivedWithOptional(Some("damn"))))
     )
   );
   Expect.(
     test("queries", () =>
-      expect(primitiveParse("?hello=hi&world=tf", queriesRouter))
+      expect(primitiveParse("?hello=hi&world=tf", queriesSpec))
       |> toEqual(Some(ArrivedWithOptionals(Some("hi"), Some("tf"))))
     )
   );
   Expect.(
     test("queries reverse order", () =>
-      expect(primitiveParse("?world=tf&hello=hi", queriesRouter))
+      expect(primitiveParse("?world=tf&hello=hi", queriesSpec))
       |> toEqual(Some(ArrivedWithOptionals(Some("hi"), Some("tf"))))
     )
   );

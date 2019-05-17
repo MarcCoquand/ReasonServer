@@ -1,27 +1,9 @@
-module Header =
-  Map.Make({
-    type t = string;
-    let compare = compare;
-  });
-
-//------------------------------------------------------------------------------
-// REQUEST
-module Request = {
-  type t = {
-    body: string,
-    path: string,
-    headers: Header.t(string),
-    method: HttpMethod.t,
-    isSecure: bool,
-  };
-};
-
 //------------------------------------------------------------------------------
 // RESPONSE
 module Response = {
   type t = {
     code: Status.code,
-    headers: Header.t(string),
+    headers: Header.Map.t(string),
     body: option(string),
     encoding: Encoding.t,
   };
@@ -34,7 +16,7 @@ module Response = {
   };
 
   let makeUnsafeHeaders = headers =>
-    Header.fold((key, value, l) => [(key, value), ...l], headers, [])
+    Header.Map.fold((key, value, l) => [(key, value), ...l], headers, [])
     |> Array.of_list;
 
   let convert = (safeRes: t): Unsafe.Response.abs_t =>
@@ -53,13 +35,13 @@ module Response = {
 module Builder = {
   open Status;
   type t('a) =
-    | Constructing(Header.t(string), 'a)
+    | Constructing(Header.Map.t(string), HttpMethod.t, 'a)
     | Finish(Response.t);
 
   //----------------------------------------------------------------------------
   // MAPPERS
   let start = (request: Request.t) =>
-    Constructing(request.headers, request.body);
+    Constructing(request.headers, request.method, request.body);
   let failWith = (code, header, ~message=?) =>
     Finish(Response.fail(code, header, ~message?));
 
@@ -72,14 +54,14 @@ module Builder = {
         theValue,
       ) =>
     switch (theValue) {
-    | Constructing(headers, toApply) =>
+    | Constructing(headers, method, toApply) =>
       let result = applyWith(toApply);
       switch (result) {
-      | Some(value) => Constructing(headers, value)
+      | Some(value) => Constructing(headers, method, value)
       | None =>
         failWith(
           failureCode,
-          Header.singleton("Content-Type", failureContentType),
+          Header.Map.singleton("Content-Type", failureContentType),
           ~message=?failureMessage,
         )
       };
@@ -89,7 +71,8 @@ module Builder = {
 
   let map = (mapWith: 'a => 'b, theValue) =>
     switch (theValue) {
-    | Constructing(header, toMap) => Constructing(header, mapWith(toMap))
+    | Constructing(header, method, toMap) =>
+      Constructing(header, method, mapWith(toMap))
     | Finish(response) => Finish(response)
     };
 
@@ -97,8 +80,8 @@ module Builder = {
   // HELPERS
   let setHeader = (headerType, value, calc) =>
     switch (calc) {
-    | Constructing(h, constant) =>
-      Constructing(Header.add(headerType, value, h), constant)
+    | Constructing(h, method, constant) =>
+      Constructing(Header.Map.add(headerType, value, h), method, constant)
     | Finish(builder) => Finish(builder)
     };
   let setContentType = (contentType: string, calc: t('a)) =>
@@ -109,7 +92,7 @@ module Builder = {
       (success: Status.Success.code, ~encoding=Encoding.Utf8, body)
       : Response.t =>
     switch (body) {
-    | Constructing(header, a) => {
+    | Constructing(header, method, a) => {
         code: Success(success),
         headers: header,
         body: a,
@@ -170,7 +153,8 @@ module Builder = {
 // APP
 module App = {
   type t = Request.t => Response.t;
-  type router = Router.t(t => t, t);
+  type routerApp = Builder.t(string) => Response.t;
+  type spec = Spec.t(routerApp => routerApp, routerApp);
 
   //----------------------------------------------------------------------------
   // CONVERT REQUEST TO NODE REQUEST
@@ -178,8 +162,8 @@ module App = {
     let nodeReq = Unsafe.Request.tFromJs(nodeReq);
     let convertedHeaders =
       Array.fold_left(
-        (dict, (key, el)) => Header.add(key, el, dict),
-        Header.empty,
+        (dict, (key, el)) => Header.Map.add(key, el, dict),
+        Header.Map.empty,
         Js.Dict.entries(nodeReq.headers),
       );
     let maybeMethod = HttpMethod.fromString(nodeReq.method);
@@ -206,15 +190,15 @@ module App = {
 
   //----------------------------------------------------------------------------
   // MAKE
-  let fromRouter = (router: router, ~notFound="<h1>404 - Not found</h1>"): t =>
+  let makeSpec = (spec: spec, ~notFound="<h1>404 - Not found</h1>"): t =>
     request =>
-      Router.parseUrl(router, request.method, request.path)
-      ->Belt.Option.map(_, handler => handler(request))
+      Spec.parse(spec, request.method, request.path, request.body)
+      ->Belt.Option.map(_, handler => handler(Builder.start(request)))
       ->Belt.Option.getWithDefault(
           _,
           Response.fail(
             Status.Failure.Status404,
-            Header.singleton("Content-Type", "application/html"),
+            Header.Map.singleton("Content-Type", "application/html"),
             ~message=notFound,
           ),
         );
