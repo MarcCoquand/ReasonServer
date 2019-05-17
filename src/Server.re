@@ -4,6 +4,8 @@ module Header =
     let compare = compare;
   });
 
+//------------------------------------------------------------------------------
+// REQUEST
 module Request = {
   type t = {
     body: string,
@@ -14,6 +16,8 @@ module Request = {
   };
 };
 
+//------------------------------------------------------------------------------
+// RESPONSE
 module Response = {
   type t = {
     code: Status.code,
@@ -33,7 +37,7 @@ module Response = {
     Header.fold((key, value, l) => [(key, value), ...l], headers, [])
     |> Array.of_list;
 
-  let convert = (safeRes: t): Unsafe.Response.abs_t => {
+  let convert = (safeRes: t): Unsafe.Response.abs_t =>
     Unsafe.Response.tToJs({
       bodyString: safeRes.body,
       bodyBuffer: None,
@@ -42,32 +46,20 @@ module Response = {
       encoding: safeRes.encoding->Encoding.toString,
       statusMessage: Status.message(safeRes.code),
     });
-  };
 };
 
+//------------------------------------------------------------------------------
+// RESPONSE BUILDER
 module Builder = {
   open Status;
   type t('a) =
     | Constructing(Header.t(string), 'a)
     | Finish(Response.t);
 
-  let start = (request: Request.t) => {
+  //----------------------------------------------------------------------------
+  // MAPPERS
+  let start = (request: Request.t) =>
     Constructing(request.headers, request.body);
-  };
-
-  let setHeader = (headerType, value, calc) =>
-    switch (calc) {
-    | Constructing(h, constant) =>
-      Constructing(Header.add(headerType, value, h), constant)
-    | Finish(builder) => Finish(builder)
-    };
-
-  let setContentType = (contentType: string, calc: t('a)) =>
-    setHeader("Content-Type", contentType, calc);
-
-  let setContentLength = (contentLength, builder) =>
-    setHeader("Content-Length", contentLength, builder);
-
   let failWith = (code, header, ~message=?) =>
     Finish(Response.fail(code, header, ~message?));
 
@@ -101,6 +93,18 @@ module Builder = {
     | Finish(response) => Finish(response)
     };
 
+  //----------------------------------------------------------------------------
+  // HELPERS
+  let setHeader = (headerType, value, calc) =>
+    switch (calc) {
+    | Constructing(h, constant) =>
+      Constructing(Header.add(headerType, value, h), constant)
+    | Finish(builder) => Finish(builder)
+    };
+  let setContentType = (contentType: string, calc: t('a)) =>
+    setHeader("Content-Type", contentType, calc);
+  let setContentLength = (contentLength, builder) =>
+    setHeader("Content-Length", contentLength, builder);
   let send =
       (success: Status.Success.code, ~encoding=Encoding.Utf8, body)
       : Response.t =>
@@ -114,6 +118,8 @@ module Builder = {
     | Finish(failedResponse) => failedResponse
     };
 
+  //----------------------------------------------------------------------------
+  // PARSERS
   let parse =
       (
         parser: 'b => option('a),
@@ -138,49 +144,36 @@ module Builder = {
       ) =>
     parse(decoder, ~failureMessage, ~failureContentType, calc);
 
-  /* Stringifies the Json object and set content type to application/json and then return
-   * the response */
-  let sendJson = (~code=Success.Status200, body: t(Js.Json.t)) => {
+  //----------------------------------------------------------------------------
+  // SENDERS
+
+  /* Stringifies the Json object, sets content type to application/json and
+   * returns the response */
+  let sendJson = (~code=Success.Status200, body: t(Js.Json.t)) =>
     body
     |> map(Js.Json.stringify)
     |> map(value => Some(value))
     |> setContentType("application/json")
     |> send(code);
-  };
 
-  let sendHtml = (~code=Success.Status200, body) => {
+  let sendHtml = (~code=Success.Status200, body) =>
     body |> setContentType("text/html") |> send(code);
-  };
 
-  let sendText = (text: string, ~code=Success.Status200, body) => {
+  let sendText = (text: string, ~code=Success.Status200, body) =>
     body
     |> map(_ => Some(text))
     |> setContentType("text/plain")
     |> send(code);
-  };
 };
 
+//------------------------------------------------------------------------------
+// APP
 module App = {
   type t = Request.t => Response.t;
+  type router = Router.t(t => t, t);
 
-  let router =
-      (
-        router: Router.route(t => t, t),
-        ~notFound="<h1>404 - Not found</h1>",
-        request: Request.t,
-      )
-      : Response.t =>
-    Router.parse(router, request.path)
-    ->Belt.Option.map(_, handler => handler(request))
-    ->Belt.Option.getWithDefault(
-        _,
-        Response.fail(
-          Status.Failure.Status404,
-          Header.singleton("Content-Type", "application/html"),
-          ~message=notFound,
-        ),
-      );
-
+  //----------------------------------------------------------------------------
+  // CONVERT REQUEST TO NODE REQUEST
   let unsafeHandle = (app: t, nodeReq: Unsafe.Request.abs_t) => {
     let nodeReq = Unsafe.Request.tFromJs(nodeReq);
     let convertedHeaders =
@@ -189,9 +182,7 @@ module App = {
         Header.empty,
         Js.Dict.entries(nodeReq.headers),
       );
-
-    let maybeMethod = convertNodeMethod(nodeReq.method);
-
+    let maybeMethod = HttpMethod.fromString(nodeReq.method);
     switch (maybeMethod) {
     | Some(method) =>
       Response.convert(
@@ -200,10 +191,9 @@ module App = {
           path: nodeReq.path,
           body: nodeReq.body,
           method,
-          isSecure: false
+          isSecure: false,
         }),
       )
-
     | None =>
       Response.fail(
         Status.Failure.Status400,
@@ -213,12 +203,30 @@ module App = {
       |> Response.convert
     };
   };
-  let start = (port, server) => {
-    Unsafe.server(port, unsafeHandle(server));
-  };
+
+  //----------------------------------------------------------------------------
+  // MAKE
+  let fromRouter = (router: router, ~notFound="<h1>404 - Not found</h1>"): t =>
+    request =>
+      Router.parseUrl(router, request.method, request.path)
+      ->Belt.Option.map(_, handler => handler(request))
+      ->Belt.Option.getWithDefault(
+          _,
+          Response.fail(
+            Status.Failure.Status404,
+            Header.singleton("Content-Type", "application/html"),
+            ~message=notFound,
+          ),
+        );
+
+  let start = (port, server) => Unsafe.server(port, unsafeHandle(server));
 
   /** start a HTTPS server */
-  let startSecure = (~port,~keyFilepath, ~certificateFilepath, server) => {
-    Unsafe.secureServer(port,keyFilepath, certificateFilepath, unsafeHandle(server));
-  };
+  let startSecure = (~port, ~keyFilepath, ~certificateFilepath, server) =>
+    Unsafe.secureServer(
+      port,
+      keyFilepath,
+      certificateFilepath,
+      unsafeHandle(server),
+    );
 };

@@ -10,13 +10,12 @@ const handleApp = makeResponse => (request, response) => {
         const data = Buffer.concat(chunks);
         let payload = data
         if (headers["application/json"])
-            payload = payload;
+            payload = data.toString();
         if (headers["application/x-www-form-urlencoded"])
             payload = data.toString()
         if (headers["text/plain"])
             payload = data.toString()
 
-        payload = data.toString()
         const requestContent =
             {  body: payload,
             path: request.url,

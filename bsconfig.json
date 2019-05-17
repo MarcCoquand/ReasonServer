@@ -1,26 +1,31 @@
 {
-  "name": "cause",
-  "version": "0.1.0",
-  "sources": {
-    "dir" : "src",
-    "subdirs" : true
-  },
-  {
-    "dir": "__tests__",
-    "type":"dev"
-  },
-  "package-specs": {
-    "module": "commonjs",
-    "in-source": true
-  },
-  "suffix": ".bs.js",
-  "bs-dependencies": [
-    "bs-dependencies": ["@glennsl/bs-json"],
-    "bs-dev-dependencies": ["@glennsl/bs-jest"]
-  ],
-  "warnings": {
-    "error" : "+101"
-  },
-  "namespace": true,
-  "refmt": 3
+    "name": "cause",
+    "version": "0.1.0",
+    "sources": [
+        {
+            "dir": "src",
+            "subdirs": true
+        },
+        {
+            "dir": "__tests__",
+            "type": "dev",
+            "subdirs": true
+        }
+    ],
+    "package-specs": {
+        "module": "commonjs",
+        "in-source": true
+    },
+    "suffix": ".bs.js",
+    "bs-dependencies": [
+        "@glennsl/bs-json"
+    ],
+    "bs-dev-dependencies": [
+        "@glennsl/bs-jest"
+    ],
+    "warnings": {
+        "error": "+101"
+    },
+    "namespace": true,
+    "refmt": 3
 }
