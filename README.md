@@ -1,18 +1,4 @@
-# Basic Reason Template
+# Cause REST Server
 
-Hello! This project allows you to quickly get started with Reason and BuckleScript. If you wanted a more sophisticated version, try the `react` template (`bsb -theme react -init .`).
+A rest server for Reasonml
 
-# Build
-```
-npm run build
-```
-
-# Build + Watch
-
-```
-npm run start
-```
-
-
-# Editor
-If you use `vscode`, Press `Windows + Shift + B` it will build automatically
