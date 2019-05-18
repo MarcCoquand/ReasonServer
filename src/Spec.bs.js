@@ -59,11 +59,6 @@ var Progress = /* module */[
   /* concatMap */concatMap
 ];
 
-function tap(str, value) {
-  console.log(str + ": ", value);
-  return value;
-}
-
 function isSubString(small, big, offset, _i, smallLen) {
   while(true) {
     var i = _i;
@@ -500,13 +495,6 @@ function custom(f) {
   return /* Custom */Block.__(1, [f]);
 }
 
-function $great$neg(f, g) {
-  return /* Slash */Block.__(2, [
-            f,
-            g
-          ]);
-}
-
 function map$1(toMap, route) {
   return /* Map */Block.__(3, [
             toMap,
@@ -525,13 +513,6 @@ function query(str, f) {
           ]);
 }
 
-function $eq$eq$great(route, handler) {
-  return /* Map */Block.__(3, [
-            handler,
-            route
-          ]);
-}
-
 function jsonBody($staropt$star, $staropt$star$1, parser) {
   var failureCode = $staropt$star !== undefined ? $staropt$star : /* BadRequest400 */15;
   var failureMessage = $staropt$star$1 !== undefined ? $staropt$star$1 : "Invalid Json body";
@@ -541,6 +522,25 @@ function jsonBody($staropt$star, $staropt$star$1, parser) {
             (function (str) {
                 return Belt_Option.map(Json.parse(str), parser);
               })
+          ]);
+}
+
+var Required = /* module */[
+  /* top : Top */0,
+  /* is */is,
+  /* int : Integer */1,
+  /* text */text$1,
+  /* custom */custom,
+  /* map */map$1,
+  /* oneOf */oneOf,
+  /* query */query,
+  /* jsonBody */jsonBody
+];
+
+function $eq$eq$great(route, handler) {
+  return /* Map */Block.__(3, [
+            handler,
+            route
           ]);
 }
 
@@ -644,12 +644,14 @@ function patch(handler, route) {
           ]);
 }
 
-var top = /* Top */0;
-
-var $$int$1 = /* Integer */1;
+function $great$neg(f, g) {
+  return /* Slash */Block.__(2, [
+            f,
+            g
+          ]);
+}
 
 exports.Progress = Progress;
-exports.tap = tap;
 exports.Chomp = Chomp;
 exports.Query = Query;
 exports.mapHelp = mapHelp;
@@ -657,17 +659,8 @@ exports.attempt = attempt;
 exports.parseHelp = parseHelp;
 exports.parse = parse;
 exports.parseString = parseString;
-exports.top = top;
-exports.is = is;
-exports.$$int = $$int$1;
-exports.text = text$1;
-exports.custom = custom;
-exports.$great$neg = $great$neg;
-exports.map = map$1;
-exports.oneOf = oneOf;
-exports.query = query;
+exports.Required = Required;
 exports.$eq$eq$great = $eq$eq$great;
-exports.jsonBody = jsonBody;
 exports.get = get;
 exports.post = post;
 exports.$$delete = $$delete;
@@ -678,4 +671,5 @@ exports.methodOption = methodOption;
 exports.methodConnect = methodConnect;
 exports.methodTrace = methodTrace;
 exports.patch = patch;
+exports.$great$neg = $great$neg;
 /* No side effect */

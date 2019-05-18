@@ -11,7 +11,7 @@ function decoder(json) {
 
 function postHandler($$int, user) {
   var partial_arg = /* Created201 */1;
-  var partial_arg$1 = Server$Cause.Builder[/* sendText */12];
+  var partial_arg$1 = Server$Cause.Builder[/* sendText */8];
   return (function (param) {
       return partial_arg$1(partial_arg, "updated user!", param);
     });
@@ -36,7 +36,7 @@ function decoder$1(json) {
 }
 
 function books(published, author) {
-  var partial_arg = Server$Cause.Builder[/* sendText */12];
+  var partial_arg = Server$Cause.Builder[/* sendText */8];
   return (function (param) {
       return partial_arg(undefined, "Here are your books!", param);
     });

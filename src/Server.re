@@ -8,7 +8,7 @@ module Response = {
     encoding: Encoding.t,
   };
 
-  let fail = (code, header, ~message=?): t => {
+  let fail = (~message=?, code, header): t => {
     code,
     headers: header,
     body: message,
@@ -33,7 +33,6 @@ module Response = {
 //------------------------------------------------------------------------------
 // RESPONSE BUILDER
 module Builder = {
-  open Status;
   type t('a) =
     | Constructing(Header.Map.t(string), HttpMethod.t, 'a)
     | Finish(Response.t);
@@ -100,33 +99,7 @@ module Builder = {
     };
 
   //----------------------------------------------------------------------------
-  // PARSERS
-  let parse =
-      (
-        parser: 'b => option('a),
-        ~failureMessage="Parsing Failed",
-        ~failureContentType,
-        calc: t('a),
-      ) =>
-    andThen(
-      parser,
-      ~failureCode=Status.BadRequest400,
-      ~failureMessage,
-      ~failureContentType,
-      calc,
-    );
-
-  let parseJson =
-      (
-        decoder: Js.Json.t => option('b),
-        ~failureMessage="Invalid JSON format.",
-        ~failureContentType="application/json",
-        calc,
-      ) =>
-    parse(decoder, ~failureMessage, ~failureContentType, calc);
-
-  //----------------------------------------------------------------------------
-  // SENDERS
+  // SEND RESPONSE
 
   /* Stringifies the Json object, sets content type to application/json and
    * returns the response */
@@ -188,7 +161,7 @@ module App = {
 
   //----------------------------------------------------------------------------
   // MAKE
-  let makeSpec = (spec: spec, ~notFound="<h1>404 - Not found</h1>"): t =>
+  let makeApp = (spec: spec, ~notFound="<h1>404 - Not found</h1>"): t =>
     request =>
       Spec.parse(spec, request.method, request.path, request.body)
       |> (
@@ -210,10 +183,12 @@ module App = {
           }
       );
 
-  let start = (port, server) => Unsafe.server(port, unsafeHandle(server));
+  let runRequest = (req: Request.t, spec: spec) => req |> makeApp(spec);
+  let start = (~port=3000, server) =>
+    Unsafe.server(port, unsafeHandle(server));
 
   /** start a HTTPS server */
-  let startSecure = (~port, ~keyFilepath, ~certificateFilepath, server) =>
+  let startSecure = (~port=3000, ~keyFilepath, ~certificateFilepath, server) =>
     Unsafe.secureServer(
       port,
       keyFilepath,

@@ -58,10 +58,7 @@ module Progress = {
   let concatMap: type a b. (a => t(b), t(a)) => t(b) =
     (f, l) => map(f, l) |> concat;
 };
-let tap = (str, value) => {
-  Js.log2(str ++ ": ", value);
-  value;
-};
+
 module Chomp = {
   //----------------------------------------------------------------------------
   // CHOMP EXACT
@@ -146,8 +143,9 @@ module Chomp = {
 
   //----------------------------------------------------------------------------
   // CHOMP QUERIES
-  // Query parameters are unordered while argument list is ordered. Thus we parse
-  // all the parameters and check if they contain each.
+  // Query parameters are unordered while argument list is ordered.
+  // Thus we need to parse all of them before checking the values are of a
+  // correct type.
   let rec queries = (url, offset, length, set): querySet => {
     let (endOffsetKey, offsetKey, lengthKey) = segment(url, offset, length);
 
@@ -185,7 +183,6 @@ let mapHelp = (func, state) =>
     }
   );
 
-// List.concat(List.map(f, l));
 //------------------------------------------------------------------------------
 // PARSING
 let rec attempt: type a b. (t(a, b), state(a)) => Progress.t(state(b)) =
@@ -360,34 +357,31 @@ let parseString = (route: t('a => 'b, 'b), path) => {
 // let router =
 //      get [top |> get(index),
 //           is "api" >- is "user" >- int |> get(userHandle)]
-let top = Top;
-let is = (str: string) => Exact(str);
-let int = Integer;
-let text = Custom(value => Some(value));
-let custom = (f: string => option('a)): t('a => 'b, 'b) => Custom(f);
-let (>-) = (f, g): t('a, 'c) => Slash(f, g);
-let map = (toMap: 'a, route: t('a, 'b)): t('b => 'c, 'c) =>
-  Map(toMap, route);
-"user";
-let oneOf = (l: list(t('a, 'b))) => OneOf(l);
-let query = (str, f) => Optional(str, f);
+module Required = {
+  let top = Top;
+  let is = (str: string) => Exact(str);
+  let int = Integer;
+  let text = Custom(value => Some(value));
 
-// Left associative operator. Use when you don't care about http method
-let (==>) = (route: t('a, 'b), handler: 'a): t('b => 'c, 'c) =>
-  Map(handler, route);
+  let custom = (f: string => option('a)): t('a => 'b, 'b) => Custom(f);
+  let map = (toMap: 'a, route: t('a, 'b)): t('b => 'c, 'c) =>
+    Map(toMap, route);
+  "user";
+  let oneOf = (l: list(t('a, 'b))) => OneOf(l);
+  let query = (str, f) => Optional(str, f);
 
-let jsonBody =
-    (
-      ~failureCode=Status.BadRequest400,
-      ~failureMessage="Invalid Json body",
-      parser: Js.Json.t => 'a,
-    ) =>
-  Body(
-    failureCode,
-    failureMessage,
-    str => Belt.Option.map(Json.parse(str), parser),
-  );
-
+  let jsonBody =
+      (
+        ~failureCode=Status.BadRequest400,
+        ~failureMessage="Invalid Json body",
+        parser: Js.Json.t => 'a,
+      ) =>
+    Body(
+      failureCode,
+      failureMessage,
+      str => Belt.Option.map(Json.parse(str), parser),
+    );
+};
 // let (<&>) = (route, (str, f)) =>
 //   Slash(
 //     Slash(route, Optional(str, value => parseString(f, value))),
@@ -399,6 +393,9 @@ let jsonBody =
 
 //------------------------------------------------------------------------------
 // ROUTER HTTP METHOD COMBINATORS
+// Left associative operator. Use when you don't care about http method
+let (==>) = (route: t('a, 'b), handler: 'a): t('b => 'c, 'c) =>
+  Map(handler, route);
 let get = (handler, route) =>
   Map(handler, Slash(Method(HttpMethod.GET), route));
 let post = (handler, route) =>
@@ -419,3 +416,4 @@ let methodTrace = (handler, route) =>
   Map(handler, Slash(Method(HttpMethod.TRACE), route));
 let patch = (handler, route) =>
   Map(handler, Slash(Method(HttpMethod.PATCH), route));
+let (>-) = (f, g): t('a, 'c) => Slash(f, g);

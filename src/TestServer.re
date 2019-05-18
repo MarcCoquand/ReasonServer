@@ -12,7 +12,8 @@ module User = {
 
   module Spec = {
     open Spec;
-    let api: App.spec = int >- jsonBody(decoder) |> post(postHandler);
+    let api: App.spec =
+      Required.int >- Required.jsonBody(decoder) |> post(postHandler);
   };
 };
 
@@ -43,5 +44,10 @@ module Books = {
 
 module Specification = {
   open Spec;
-  let myApp: App.spec = is("api") >- oneOf([is("user") >- User.Spec.api]);
+  let myApp: App.spec =
+    Required.is("api")
+    >- Required.oneOf([
+         Required.is("user") >- User.Spec.api,
+         Required.is("books") >- Books.Spec.api,
+       ]);
 };

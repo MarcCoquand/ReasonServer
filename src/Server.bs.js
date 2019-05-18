@@ -45,22 +45,12 @@ function convert(safeRes) {
             ]);
 }
 
-var $$Response = /* module */[
-  /* fail */fail,
-  /* makeUnsafeHeaders */makeUnsafeHeaders,
-  /* convert */convert
-];
-
 function start(request) {
   return /* Constructing */Block.__(0, [
             request[/* headers */2],
             request[/* method */3],
             request[/* body */0]
           ]);
-}
-
-function failWith(message, code, header) {
-  return /* Finish */Block.__(1, [fail(code, header, message)]);
 }
 
 function andThen($staropt$star, failureMessage, $staropt$star$1, applyWith, theValue) {
@@ -77,7 +67,10 @@ function andThen($staropt$star, failureMessage, $staropt$star$1, applyWith, theV
                 Caml_option.valFromOption(result)
               ]);
     } else {
-      return failWith(failureMessage, failureCode, Curry._2(Header$Cause.$$Map[/* singleton */4], "Content-Type", failureContentType));
+      var message = failureMessage;
+      var code = failureCode;
+      var header = Curry._2(Header$Cause.$$Map[/* singleton */4], "Content-Type", failureContentType);
+      return /* Finish */Block.__(1, [fail(code, header, message)]);
     }
   }
 }
@@ -128,17 +121,6 @@ function send(success, $staropt$star, body) {
   }
 }
 
-function parse(parser, $staropt$star, failureContentType, calc) {
-  var failureMessage = $staropt$star !== undefined ? $staropt$star : "Parsing Failed";
-  return andThen(/* BadRequest400 */15, failureMessage, failureContentType, parser, calc);
-}
-
-function parseJson(decoder, $staropt$star, $staropt$star$1, calc) {
-  var failureMessage = $staropt$star !== undefined ? $staropt$star : "Invalid JSON format.";
-  var failureContentType = $staropt$star$1 !== undefined ? $staropt$star$1 : "application/json";
-  return parse(decoder, failureMessage, failureContentType, calc);
-}
-
 function sendJson($staropt$star, body) {
   var code = $staropt$star !== undefined ? $staropt$star : /* Ok200 */0;
   return (function (eta) {
@@ -166,22 +148,6 @@ function sendText($staropt$star, text, body) {
                       }), body)));
 }
 
-var Builder = /* module */[
-  /* start */start,
-  /* failWith */failWith,
-  /* andThen */andThen,
-  /* map */map,
-  /* setHeader */setHeader,
-  /* setContentType */setContentType,
-  /* setContentLength */setContentLength,
-  /* send */send,
-  /* parse */parse,
-  /* parseJson */parseJson,
-  /* sendJson */sendJson,
-  /* sendHtml */sendHtml,
-  /* sendText */sendText
-];
-
 function unsafeHandle(app, nodeReq) {
   var nodeReq$1 = Unsafe$Cause.$$Request[/* tFromJs */1](nodeReq);
   var convertedHeaders = $$Array.fold_left((function (dict, param) {
@@ -201,7 +167,7 @@ function unsafeHandle(app, nodeReq) {
   }
 }
 
-function makeSpec(spec, $staropt$star, request) {
+function makeApp(spec, $staropt$star, request) {
   var notFound = $staropt$star !== undefined ? $staropt$star : "<h1>404 - Not found</h1>";
   var result = Spec$Cause.parse(spec, request[/* method */3], request[/* path */1], request[/* body */0]);
   if (result.tag) {
@@ -231,9 +197,23 @@ function startSecure(port, keyFilepath, certificateFilepath, server) {
 
 var App = /* module */[
   /* unsafeHandle */unsafeHandle,
-  /* makeSpec */makeSpec,
+  /* makeApp */makeApp,
   /* start */start$1,
   /* startSecure */startSecure
+];
+
+var $$Response = [];
+
+var Builder = [
+  andThen,
+  map,
+  setHeader,
+  setContentType,
+  setContentLength,
+  send,
+  sendJson,
+  sendHtml,
+  sendText
 ];
 
 exports.$$Response = $$Response;
