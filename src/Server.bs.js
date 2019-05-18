@@ -6,7 +6,6 @@ var Block = require("bs-platform/lib/js/block.js");
 var Curry = require("bs-platform/lib/js/curry.js");
 var Js_dict = require("bs-platform/lib/js/js_dict.js");
 var Spec$Cause = require("./Spec.bs.js");
-var Belt_Option = require("bs-platform/lib/js/belt_Option.js");
 var Caml_option = require("bs-platform/lib/js/caml_option.js");
 var Header$Cause = require("./Header.bs.js");
 var Status$Cause = require("./Status.bs.js");
@@ -16,7 +15,7 @@ var HttpMethod$Cause = require("./HttpMethod.bs.js");
 
 function fail(code, header, message) {
   return /* record */[
-          /* code */Status$Cause.fail(code),
+          /* code */code,
           /* headers */header,
           /* body */message,
           /* encoding : Utf8 */7
@@ -60,12 +59,12 @@ function start(request) {
           ]);
 }
 
-function failWith(code, header, message) {
+function failWith(message, code, header) {
   return /* Finish */Block.__(1, [fail(code, header, message)]);
 }
 
-function andThen(applyWith, $staropt$star, failureMessage, $staropt$star$1, theValue) {
-  var failureCode = $staropt$star !== undefined ? $staropt$star : /* Status500 */19;
+function andThen($staropt$star, failureMessage, $staropt$star$1, applyWith, theValue) {
+  var failureCode = $staropt$star !== undefined ? $staropt$star : /* Error500 */34;
   var failureContentType = $staropt$star$1 !== undefined ? $staropt$star$1 : "text/plain";
   if (theValue.tag) {
     return /* Finish */Block.__(1, [theValue[0]]);
@@ -78,7 +77,7 @@ function andThen(applyWith, $staropt$star, failureMessage, $staropt$star$1, theV
                 Caml_option.valFromOption(result)
               ]);
     } else {
-      return failWith(failureCode, Curry._2(Header$Cause.$$Map[/* singleton */4], "Content-Type", failureContentType), failureMessage);
+      return failWith(failureMessage, failureCode, Curry._2(Header$Cause.$$Map[/* singleton */4], "Content-Type", failureContentType));
     }
   }
 }
@@ -121,7 +120,7 @@ function send(success, $staropt$star, body) {
     return body[0];
   } else {
     return /* record */[
-            /* code : Success */Block.__(0, [success]),
+            /* code */success,
             /* headers */body[0],
             /* body */body[2],
             /* encoding */encoding
@@ -131,7 +130,7 @@ function send(success, $staropt$star, body) {
 
 function parse(parser, $staropt$star, failureContentType, calc) {
   var failureMessage = $staropt$star !== undefined ? $staropt$star : "Parsing Failed";
-  return andThen(parser, /* Status400 */0, failureMessage, failureContentType, calc);
+  return andThen(/* BadRequest400 */15, failureMessage, failureContentType, parser, calc);
 }
 
 function parseJson(decoder, $staropt$star, $staropt$star$1, calc) {
@@ -141,7 +140,7 @@ function parseJson(decoder, $staropt$star, $staropt$star$1, calc) {
 }
 
 function sendJson($staropt$star, body) {
-  var code = $staropt$star !== undefined ? $staropt$star : /* Status200 */0;
+  var code = $staropt$star !== undefined ? $staropt$star : /* Ok200 */0;
   return (function (eta) {
               return send(code, undefined, eta);
             })(setHeader("Content-Type", "application/json", map((function (value) {
@@ -152,14 +151,14 @@ function sendJson($staropt$star, body) {
 }
 
 function sendHtml($staropt$star, body) {
-  var code = $staropt$star !== undefined ? $staropt$star : /* Status200 */0;
+  var code = $staropt$star !== undefined ? $staropt$star : /* Ok200 */0;
   return (function (eta) {
               return send(code, undefined, eta);
             })(setHeader("Content-Type", "text/html", body));
 }
 
-function sendText(text, $staropt$star, body) {
-  var code = $staropt$star !== undefined ? $staropt$star : /* Status200 */0;
+function sendText($staropt$star, text, body) {
+  var code = $staropt$star !== undefined ? $staropt$star : /* Ok200 */0;
   return (function (eta) {
               return send(code, undefined, eta);
             })(setHeader("Content-Type", "text/plain", map((function (param) {
@@ -198,17 +197,24 @@ function unsafeHandle(app, nodeReq) {
                     /* isSecure */false
                   ]));
   } else {
-    return convert(fail(/* Status400 */0, convertedHeaders, "No method"));
+    return convert(fail(/* BadRequest400 */15, convertedHeaders, "No method"));
   }
 }
 
 function makeSpec(spec, $staropt$star, request) {
   var notFound = $staropt$star !== undefined ? $staropt$star : "<h1>404 - Not found</h1>";
-  var __x = Spec$Cause.parse(spec, request[/* method */3], request[/* path */1], request[/* body */0]);
-  var __x$1 = Belt_Option.map(__x, (function (handler) {
-          return Curry._1(handler, start(request));
-        }));
-  return Belt_Option.getWithDefault(__x$1, fail(/* Status404 */4, Curry._2(Header$Cause.$$Map[/* singleton */4], "Content-Type", "application/html"), notFound));
+  var result = Spec$Cause.parse(spec, request[/* method */3], request[/* path */1], request[/* body */0]);
+  if (result.tag) {
+    var code = result[0];
+    var match = code === /* NotFound404 */19;
+    if (match) {
+      return fail(/* NotFound404 */19, Curry._2(Header$Cause.$$Map[/* singleton */4], "Content-Type", "application/html"), notFound);
+    } else {
+      return fail(code, Curry._2(Header$Cause.$$Map[/* singleton */4], "Content-Type", "application/html"), result[1]);
+    }
+  } else {
+    return Curry._1(result[0], start(request));
+  }
 }
 
 function start$1(port, server) {

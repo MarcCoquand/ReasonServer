@@ -6,35 +6,62 @@ var List = require("bs-platform/lib/js/list.js");
 var Block = require("bs-platform/lib/js/block.js");
 var Curry = require("bs-platform/lib/js/curry.js");
 var $$String = require("bs-platform/lib/js/string.js");
+var Belt_Int = require("bs-platform/lib/js/belt_Int.js");
 var Caml_int32 = require("bs-platform/lib/js/caml_int32.js");
 var Belt_Option = require("bs-platform/lib/js/belt_Option.js");
 var Caml_option = require("bs-platform/lib/js/caml_option.js");
 var Caml_string = require("bs-platform/lib/js/caml_string.js");
 var Belt_MapString = require("bs-platform/lib/js/belt_MapString.js");
 
-function tap(str, value) {
-  console.log(str + ": ", value);
-  return value;
+function map(f, l) {
+  if (l.tag) {
+    return /* Failed */Block.__(1, [
+              l[0],
+              l[1]
+            ]);
+  } else {
+    return /* Parsing */Block.__(0, [List.map(f, l[0])]);
+  }
 }
 
-function mapHelp(func, state) {
-  return /* record */[
-          /* url */state[/* url */0],
-          /* offset */state[/* offset */1],
-          /* length */state[/* length */2],
-          /* value */Curry._1(func, state[/* value */3]),
-          /* queries */state[/* queries */4],
-          /* method */state[/* method */5],
-          /* body */state[/* body */6]
-        ];
+function concat(l) {
+  if (l.tag) {
+    return /* Failed */Block.__(1, [
+              l[0],
+              l[1]
+            ]);
+  } else {
+    return List.fold_right((function (results, n) {
+                  if (results.tag) {
+                    return /* Failed */Block.__(1, [
+                              results[0],
+                              results[1]
+                            ]);
+                  } else if (n.tag) {
+                    return /* Failed */Block.__(1, [
+                              n[0],
+                              n[1]
+                            ]);
+                  } else {
+                    return /* Parsing */Block.__(0, [List.append(n[0], results[0])]);
+                  }
+                }), l[0], /* Parsing */Block.__(0, [/* [] */0]));
+  }
 }
 
 function concatMap(f, l) {
-  return List.concat(List.map(f, l));
+  return concat(map(f, l));
 }
 
-function extractValue(str, start, upto) {
-  return $$String.sub(str, start, upto - start | 0);
+var Progress = /* module */[
+  /* map */map,
+  /* concat */concat,
+  /* concatMap */concatMap
+];
+
+function tap(str, value) {
+  console.log(str + ": ", value);
+  return value;
 }
 
 function isSubString(small, big, offset, _i, smallLen) {
@@ -51,7 +78,7 @@ function isSubString(small, big, offset, _i, smallLen) {
   };
 }
 
-function chompExact(small, big, offset, length) {
+function exact(small, big, offset, length) {
   var smallLen = small.length;
   if (length < smallLen || smallLen === 0 || !isSubString(small, big, offset, 0, smallLen)) {
     return /* tuple */[
@@ -80,57 +107,6 @@ function chompExact(small, big, offset, length) {
   }
 }
 
-function chompSegment(url, _offset, _length) {
-  while(true) {
-    var length = _length;
-    var offset = _offset;
-    if (length === 0) {
-      return /* tuple */[
-              offset,
-              offset,
-              length
-            ];
-    } else if (Caml_string.get(url, offset) === /* "/" */47 || Caml_string.get(url, offset) === /* "&" */38 || Caml_string.get(url, offset) === /* "=" */61 || Caml_string.get(url, offset) === /* "?" */63) {
-      return /* tuple */[
-              offset,
-              offset + 1 | 0,
-              length - 1 | 0
-            ];
-    } else {
-      _length = length - 1 | 0;
-      _offset = offset + 1 | 0;
-      continue ;
-    }
-  };
-}
-
-function chompQueries(url, _offset, _length, _set) {
-  while(true) {
-    var set = _set;
-    var length = _length;
-    var offset = _offset;
-    var match = chompSegment(url, offset, length);
-    var offsetKey = match[1];
-    if (offsetKey === offset) {
-      return set;
-    } else {
-      var key = extractValue(url, offset, match[0]);
-      var match$1 = chompSegment(url, offsetKey, match[2]);
-      var nextOffset = match$1[1];
-      if (nextOffset === offsetKey) {
-        return set;
-      } else {
-        var queryValue = extractValue(url, offsetKey, match$1[0]);
-        var newSet = Belt_MapString.set(set, key, queryValue);
-        _set = newSet;
-        _length = match$1[2];
-        _offset = nextOffset;
-        continue ;
-      }
-    }
-  };
-}
-
 function charDigitToInt(str) {
   if (str > 57 || str < 48) {
     return undefined;
@@ -139,7 +115,7 @@ function charDigitToInt(str) {
   }
 }
 
-function chompIntHelp(url, _offset, _length, _n) {
+function intHelp(url, _offset, _length, _n) {
   while(true) {
     var n = _n;
     var length = _length;
@@ -178,7 +154,7 @@ function chompIntHelp(url, _offset, _length, _n) {
   };
 }
 
-function chompInt(url, offset, length) {
+function $$int(url, offset, length) {
   if (length === 0) {
     return /* tuple */[
             offset,
@@ -189,7 +165,7 @@ function chompInt(url, offset, length) {
     var word = Caml_string.get(url, offset);
     var match = charDigitToInt(word);
     if (match !== undefined) {
-      return chompIntHelp(url, offset + 1 | 0, length - 1 | 0, match);
+      return intHelp(url, offset + 1 | 0, length - 1 | 0, match);
     } else {
       return /* tuple */[
               offset,
@@ -200,81 +176,168 @@ function chompInt(url, offset, length) {
   }
 }
 
+function segment(url, _offset, _length) {
+  while(true) {
+    var length = _length;
+    var offset = _offset;
+    if (length === 0) {
+      return /* tuple */[
+              offset,
+              offset,
+              length
+            ];
+    } else if (Caml_string.get(url, offset) === /* "/" */47 || Caml_string.get(url, offset) === /* "&" */38 || Caml_string.get(url, offset) === /* "=" */61 || Caml_string.get(url, offset) === /* "?" */63) {
+      return /* tuple */[
+              offset,
+              offset + 1 | 0,
+              length - 1 | 0
+            ];
+    } else {
+      _length = length - 1 | 0;
+      _offset = offset + 1 | 0;
+      continue ;
+    }
+  };
+}
+
+function extractValue(str, start, upto) {
+  return $$String.sub(str, start, upto - start | 0);
+}
+
+function queries(url, _offset, _length, _set) {
+  while(true) {
+    var set = _set;
+    var length = _length;
+    var offset = _offset;
+    var match = segment(url, offset, length);
+    var offsetKey = match[1];
+    if (offsetKey === offset) {
+      return set;
+    } else {
+      var key = extractValue(url, offset, match[0]);
+      var match$1 = segment(url, offsetKey, match[2]);
+      var nextOffset = match$1[1];
+      if (nextOffset === offsetKey) {
+        return set;
+      } else {
+        var queryValue = extractValue(url, offsetKey, match$1[0]);
+        var newSet = Belt_MapString.set(set, key, queryValue);
+        _set = newSet;
+        _length = match$1[2];
+        _offset = nextOffset;
+        continue ;
+      }
+    }
+  };
+}
+
+var Chomp = /* module */[
+  /* isSubString */isSubString,
+  /* exact */exact,
+  /* charDigitToInt */charDigitToInt,
+  /* intHelp */intHelp,
+  /* int */$$int,
+  /* segment */segment,
+  /* extractValue */extractValue,
+  /* queries */queries
+];
+
+function text(value) {
+  return Caml_option.some(value);
+}
+
+var Query = /* module */[
+  /* text */text,
+  /* int */Belt_Int.fromString
+];
+
+function mapHelp(func, state) {
+  return /* record */[
+          /* url */state[/* url */0],
+          /* offset */state[/* offset */1],
+          /* length */state[/* length */2],
+          /* value */Curry._1(func, state[/* value */3]),
+          /* queries */state[/* queries */4],
+          /* method */state[/* method */5],
+          /* body */state[/* body */6]
+        ];
+}
+
 function attempt(route, state) {
   if (typeof route === "number") {
     if (route === 0) {
       if (state[/* length */2] === 0) {
-        return /* :: */[
-                state,
-                /* [] */0
-              ];
+        return /* Parsing */Block.__(0, [/* :: */[
+                    state,
+                    /* [] */0
+                  ]]);
       } else {
-        return /* [] */0;
+        return /* Parsing */Block.__(0, [/* [] */0]);
       }
     } else {
-      var match = chompInt(state[/* url */0], state[/* offset */1], state[/* length */2]);
+      var match = $$int(state[/* url */0], state[/* offset */1], state[/* length */2]);
       var newOffset = match[0];
       if (newOffset <= state[/* offset */1]) {
-        return /* [] */0;
+        return /* Parsing */Block.__(0, [/* [] */0]);
       } else {
-        return /* :: */[
-                /* record */[
-                  /* url */state[/* url */0],
-                  /* offset */newOffset,
-                  /* length */match[1],
-                  /* value */Curry._1(state[/* value */3], match[2]),
-                  /* queries */state[/* queries */4],
-                  /* method */state[/* method */5],
-                  /* body */state[/* body */6]
-                ],
-                /* [] */0
-              ];
-      }
-    }
-  } else {
-    switch (route.tag | 0) {
-      case 0 : 
-          var match$1 = chompExact(route[0], state[/* url */0], state[/* offset */1], state[/* length */2]);
-          var newOffset$1 = match$1[0];
-          if (newOffset$1 === -1) {
-            return /* [] */0;
-          } else {
-            return /* :: */[
+        return /* Parsing */Block.__(0, [/* :: */[
                     /* record */[
                       /* url */state[/* url */0],
-                      /* offset */newOffset$1,
-                      /* length */match$1[1],
-                      /* value */state[/* value */3],
+                      /* offset */newOffset,
+                      /* length */match[1],
+                      /* value */Curry._1(state[/* value */3], match[2]),
                       /* queries */state[/* queries */4],
                       /* method */state[/* method */5],
                       /* body */state[/* body */6]
                     ],
                     /* [] */0
-                  ];
+                  ]]);
+      }
+    }
+  } else {
+    switch (route.tag | 0) {
+      case 0 : 
+          var match$1 = exact(route[0], state[/* url */0], state[/* offset */1], state[/* length */2]);
+          var newOffset$1 = match$1[0];
+          if (newOffset$1 === -1) {
+            return /* Parsing */Block.__(0, [/* [] */0]);
+          } else {
+            return /* Parsing */Block.__(0, [/* :: */[
+                        /* record */[
+                          /* url */state[/* url */0],
+                          /* offset */newOffset$1,
+                          /* length */match$1[1],
+                          /* value */state[/* value */3],
+                          /* queries */state[/* queries */4],
+                          /* method */state[/* method */5],
+                          /* body */state[/* body */6]
+                        ],
+                        /* [] */0
+                      ]]);
           }
       case 1 : 
-          var match$2 = chompSegment(state[/* url */0], state[/* offset */1], state[/* length */2]);
+          var match$2 = segment(state[/* url */0], state[/* offset */1], state[/* length */2]);
           var endOffset = match$2[0];
           if (endOffset === state[/* offset */1]) {
-            return /* [] */0;
+            return /* Parsing */Block.__(0, [/* [] */0]);
           } else {
             var subString = $$String.sub(state[/* url */0], state[/* offset */1], endOffset - state[/* offset */1] | 0);
             var match$3 = Curry._1(route[0], subString);
             if (match$3 !== undefined) {
-              return /* :: */[
-                      /* record */[
-                        /* url */state[/* url */0],
-                        /* offset */match$2[1],
-                        /* length */match$2[2],
-                        /* value */Curry._1(state[/* value */3], Caml_option.valFromOption(match$3)),
-                        /* queries */state[/* queries */4],
-                        /* method */state[/* method */5],
-                        /* body */state[/* body */6]
-                      ],
-                      /* [] */0
-                    ];
+              return /* Parsing */Block.__(0, [/* :: */[
+                          /* record */[
+                            /* url */state[/* url */0],
+                            /* offset */match$2[1],
+                            /* length */match$2[2],
+                            /* value */Curry._1(state[/* value */3], Caml_option.valFromOption(match$3)),
+                            /* queries */state[/* queries */4],
+                            /* method */state[/* method */5],
+                            /* body */state[/* body */6]
+                          ],
+                          /* [] */0
+                        ]]);
             } else {
-              return /* [] */0;
+              return /* Parsing */Block.__(0, [/* [] */0]);
             }
           }
       case 2 : 
@@ -283,10 +346,10 @@ function attempt(route, state) {
           var f = function (param) {
             return attempt(after, param);
           };
-          return List.concat(List.map(f, l));
+          return concat(map(f, l));
       case 3 : 
           var partial_arg = state[/* value */3];
-          return List.map((function (param) {
+          return map((function (param) {
                         return mapHelp(partial_arg, param);
                       }), attempt(route[1], /* record */[
                           /* url */state[/* url */0],
@@ -298,84 +361,98 @@ function attempt(route, state) {
                           /* body */state[/* body */6]
                         ]));
       case 4 : 
-          return List.concat(List.map((function (p) {
+          return concat(map((function (p) {
                             return attempt(p, state);
-                          }), route[0]));
+                          }), /* Parsing */Block.__(0, [route[0]])));
       case 5 : 
           if (state[/* method */5] === route[0]) {
-            return /* :: */[
-                    state,
-                    /* [] */0
-                  ];
+            return /* Parsing */Block.__(0, [/* :: */[
+                        state,
+                        /* [] */0
+                      ]]);
           } else {
-            return /* [] */0;
+            return /* Parsing */Block.__(0, [/* [] */0]);
           }
       case 6 : 
-          var match$4 = Curry._1(route[0], state[/* body */6]);
+          var match$4 = Curry._1(route[2], state[/* body */6]);
           if (match$4 !== undefined) {
-            return /* :: */[
-                    /* record */[
-                      /* url */state[/* url */0],
-                      /* offset */state[/* offset */1],
-                      /* length */state[/* length */2],
-                      /* value */Curry._1(state[/* value */3], Caml_option.valFromOption(match$4)),
-                      /* queries */state[/* queries */4],
-                      /* method */state[/* method */5],
-                      /* body */state[/* body */6]
-                    ],
-                    /* [] */0
-                  ];
+            return /* Parsing */Block.__(0, [/* :: */[
+                        /* record */[
+                          /* url */state[/* url */0],
+                          /* offset */state[/* offset */1],
+                          /* length */state[/* length */2],
+                          /* value */Curry._1(state[/* value */3], Caml_option.valFromOption(match$4)),
+                          /* queries */state[/* queries */4],
+                          /* method */state[/* method */5],
+                          /* body */state[/* body */6]
+                        ],
+                        /* [] */0
+                      ]]);
           } else {
-            return /* [] */0;
+            return /* Failed */Block.__(1, [
+                      route[0],
+                      route[1]
+                    ]);
           }
       case 7 : 
-          var queries = Belt_Option.getWithDefault(state[/* queries */4], chompQueries(state[/* url */0], state[/* offset */1], state[/* length */2], Belt_MapString.empty));
-          var match$5 = Belt_MapString.get(queries, route[0]);
+          var queries$1 = Belt_Option.getWithDefault(state[/* queries */4], queries(state[/* url */0], state[/* offset */1], state[/* length */2], Belt_MapString.empty));
+          var match$5 = Belt_MapString.get(queries$1, route[0]);
           if (match$5 !== undefined) {
-            return /* :: */[
-                    /* record */[
-                      /* url */"",
-                      /* offset */state[/* offset */1],
-                      /* length */0,
-                      /* value */Curry._1(state[/* value */3], Curry._1(route[1], match$5)),
-                      /* queries */Caml_option.some(queries),
-                      /* method */state[/* method */5],
-                      /* body */state[/* body */6]
-                    ],
-                    /* [] */0
-                  ];
+            return /* Parsing */Block.__(0, [/* :: */[
+                        /* record */[
+                          /* url */"",
+                          /* offset */state[/* offset */1],
+                          /* length */0,
+                          /* value */Curry._1(state[/* value */3], Curry._1(route[1], match$5)),
+                          /* queries */Caml_option.some(queries$1),
+                          /* method */state[/* method */5],
+                          /* body */state[/* body */6]
+                        ],
+                        /* [] */0
+                      ]]);
           } else {
-            return /* :: */[
-                    /* record */[
-                      /* url */"",
-                      /* offset */state[/* offset */1],
-                      /* length */0,
-                      /* value */Curry._1(state[/* value */3], undefined),
-                      /* queries */Caml_option.some(queries),
-                      /* method */state[/* method */5],
-                      /* body */state[/* body */6]
-                    ],
-                    /* [] */0
-                  ];
+            return /* Parsing */Block.__(0, [/* :: */[
+                        /* record */[
+                          /* url */"",
+                          /* offset */state[/* offset */1],
+                          /* length */0,
+                          /* value */Curry._1(state[/* value */3], undefined),
+                          /* queries */Caml_option.some(queries$1),
+                          /* method */state[/* method */5],
+                          /* body */state[/* body */6]
+                        ],
+                        /* [] */0
+                      ]]);
           }
       
     }
   }
 }
 
-function parseHelp(_states) {
+function parseHelp(_results) {
   while(true) {
-    var states = _states;
-    if (states) {
-      var state = states[0];
-      if (state[/* length */2] === 0) {
-        return Caml_option.some(state[/* value */3]);
-      } else {
-        _states = states[1];
-        continue ;
-      }
+    var results = _results;
+    if (results.tag) {
+      return /* Failed */Block.__(1, [
+                results[0],
+                results[1]
+              ]);
     } else {
-      return undefined;
+      var match = results[0];
+      if (match) {
+        var state = match[0];
+        if (state[/* length */2] === 0) {
+          return /* Success */Block.__(0, [state[/* value */3]]);
+        } else {
+          _results = /* Parsing */Block.__(0, [match[1]]);
+          continue ;
+        }
+      } else {
+        return /* Failed */Block.__(1, [
+                  /* NotFound404 */19,
+                  "Not found"
+                ]);
+      }
     }
   };
 }
@@ -415,7 +492,7 @@ function is(str) {
   return /* Exact */Block.__(0, [str]);
 }
 
-var text = /* Custom */Block.__(1, [(function (value) {
+var text$1 = /* Custom */Block.__(1, [(function (value) {
         return value;
       })]);
 
@@ -430,7 +507,7 @@ function $great$neg(f, g) {
           ]);
 }
 
-function map(toMap, route) {
+function map$1(toMap, route) {
   return /* Map */Block.__(3, [
             toMap,
             route
@@ -441,6 +518,13 @@ function oneOf(l) {
   return /* OneOf */Block.__(4, [l]);
 }
 
+function query(str, f) {
+  return /* Optional */Block.__(7, [
+            str,
+            f
+          ]);
+}
+
 function $eq$eq$great(route, handler) {
   return /* Map */Block.__(3, [
             handler,
@@ -448,17 +532,14 @@ function $eq$eq$great(route, handler) {
           ]);
 }
 
-function jsonBody(parser) {
-  return /* Body */Block.__(6, [(function (str) {
+function jsonBody($staropt$star, $staropt$star$1, parser) {
+  var failureCode = $staropt$star !== undefined ? $staropt$star : /* BadRequest400 */15;
+  var failureMessage = $staropt$star$1 !== undefined ? $staropt$star$1 : "Invalid Json body";
+  return /* Body */Block.__(6, [
+            failureCode,
+            failureMessage,
+            (function (str) {
                 return Belt_Option.map(Json.parse(str), parser);
-              })]);
-}
-
-function query(str, f) {
-  return /* Optional */Block.__(7, [
-            str,
-            (function (value) {
-                return parseString(f, value);
               })
           ]);
 }
@@ -565,34 +646,28 @@ function patch(handler, route) {
 
 var top = /* Top */0;
 
-var $$int = /* Integer */1;
+var $$int$1 = /* Integer */1;
 
+exports.Progress = Progress;
 exports.tap = tap;
+exports.Chomp = Chomp;
+exports.Query = Query;
 exports.mapHelp = mapHelp;
-exports.concatMap = concatMap;
-exports.extractValue = extractValue;
-exports.isSubString = isSubString;
-exports.chompExact = chompExact;
-exports.chompSegment = chompSegment;
-exports.chompQueries = chompQueries;
-exports.charDigitToInt = charDigitToInt;
-exports.chompIntHelp = chompIntHelp;
-exports.chompInt = chompInt;
 exports.attempt = attempt;
 exports.parseHelp = parseHelp;
 exports.parse = parse;
 exports.parseString = parseString;
 exports.top = top;
 exports.is = is;
-exports.$$int = $$int;
-exports.text = text;
+exports.$$int = $$int$1;
+exports.text = text$1;
 exports.custom = custom;
 exports.$great$neg = $great$neg;
-exports.map = map;
+exports.map = map$1;
 exports.oneOf = oneOf;
+exports.query = query;
 exports.$eq$eq$great = $eq$eq$great;
 exports.jsonBody = jsonBody;
-exports.query = query;
 exports.get = get;
 exports.post = post;
 exports.$$delete = $$delete;

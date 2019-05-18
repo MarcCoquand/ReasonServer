@@ -32,10 +32,10 @@ let oneOfSpec: branchSpec =
   oneOf([is("hello") ==> First, is("world") ==> Second]);
 let getSpec: idSpec = is("world") |> get(Arrived);
 let querySpec: optionalSpec =
-  query("hello", text) ==> (s => ArrivedWithOptional(s));
+  query("hello", Query.text) ==> (s => ArrivedWithOptional(s));
 let queriesSpec: queriesSpec =
-  query("hello", text)
-  >- query("world", text)
+  query("hello", Query.text)
+  >- query("world", Query.text)
   ==> ((s1, s2) => ArrivedWithOptionals(s1, s2));
 
 describe("Chompers chomp", () => {
@@ -43,26 +43,26 @@ describe("Chompers chomp", () => {
     test("segment chomps up until stop", () => {
       let url = "hello&end";
       let (offset, nextOffset, length) =
-        chompSegment(url, 0, String.length(url));
+        Chomp.segment(url, 0, String.length(url));
       let subString = String.sub(url, 0, offset);
 
-      expect(subString) |> toBe("hello");
+      expect(subString) |> toEqual("hello");
     })
   );
   Expect.(
     test("query chomps first arg", () => {
       let url = "hello=hi&world=tf";
       let chomped =
-        chompQueries(url, 0, String.length(url), Belt.Map.String.empty);
-      expect(Belt.Map.String.get(chomped, "hello")) |> toBe(Some("hi"));
+        Chomp.queries(url, 0, String.length(url), Belt.Map.String.empty);
+      expect(Belt.Map.String.get(chomped, "hello")) |> toEqual(Some("hi"));
     })
   );
   Expect.(
     test("query chomps second arg", () => {
       let url = "hello=hi&world=tf";
       let chomped =
-        chompQueries(url, 0, String.length(url), Belt.Map.String.empty);
-      expect(Belt.Map.String.get(chomped, "world")) |> toBe(Some("tf"));
+        Chomp.queries(url, 0, String.length(url), Belt.Map.String.empty);
+      expect(Belt.Map.String.get(chomped, "world")) |> toEqual(Some("tf"));
     })
   );
 });
@@ -70,65 +70,68 @@ describe("Chompers chomp", () => {
 describe("Parses primitives", () => {
   Expect.(
     test("top", () =>
-      expect(primitiveParse("/", topSpec)) |> toBe(Some(Arrived))
+      expect(primitiveParse("/", topSpec)) |> toEqual(Success(Arrived))
     )
   );
   Expect.(
     test("is", () =>
-      expect(primitiveParse("/hello", isSpec)) |> toBe(Some(Arrived))
+      expect(primitiveParse("/hello", isSpec)) |> toEqual(Success(Arrived))
     )
   );
   Expect.(
     test("text", () =>
       expect(primitiveParse("/hello", textSpec))
-      |> toEqual(Some(ArrivedWithString("hello")))
+      |> toEqual(Success(ArrivedWithString("hello")))
     )
   );
 
   Expect.(
     test("slash", () =>
       expect(primitiveParse("/hello/world", slashSpec))
-      |> toBe(Some(Arrived))
+      |> toEqual(Success(Arrived))
     )
   );
   Expect.(
     test("int", () =>
       expect(primitiveParse("/5", intSpec))
-      |> toEqual(Some(ArrivedWithInt(5)))
+      |> toEqual(Success(ArrivedWithInt(5)))
     )
   );
   Expect.(
     test("oneOf first branch", () =>
-      expect(primitiveParse("/hello", oneOfSpec)) |> toBe(Some(First))
+      expect(primitiveParse("/hello", oneOfSpec))
+      |> toEqual(Success(First))
     )
   );
   Expect.(
     test("oneOf second branch", () =>
-      expect(primitiveParse("/world", oneOfSpec)) |> toBe(Some(Second))
+      expect(primitiveParse("/world", oneOfSpec))
+      |> toEqual(Success(Second))
     )
   );
 
   Expect.(
     test("httpmethods", () =>
-      expect(primitiveParse("/world", getSpec)) |> toBe(Some(Arrived))
+      expect(primitiveParse("/world", getSpec))
+      |> toEqual(Success(Arrived))
     )
   );
   Expect.(
     test("query", () =>
       expect(primitiveParse("?hello=damn", querySpec))
-      |> toEqual(Some(ArrivedWithOptional(Some("damn"))))
+      |> toEqual(Success(ArrivedWithOptional(Some("damn"))))
     )
   );
   Expect.(
     test("queries", () =>
       expect(primitiveParse("?hello=hi&world=tf", queriesSpec))
-      |> toEqual(Some(ArrivedWithOptionals(Some("hi"), Some("tf"))))
+      |> toEqual(Success(ArrivedWithOptionals(Some("hi"), Some("tf"))))
     )
   );
   Expect.(
     test("queries reverse order", () =>
       expect(primitiveParse("?world=tf&hello=hi", queriesSpec))
-      |> toEqual(Some(ArrivedWithOptionals(Some("hi"), Some("tf"))))
+      |> toEqual(Success(ArrivedWithOptionals(Some("hi"), Some("tf"))))
     )
   );
 });

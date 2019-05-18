@@ -9,7 +9,7 @@ module Response = {
   };
 
   let fail = (code, header, ~message=?): t => {
-    code: Status.fail(code),
+    code,
     headers: header,
     body: message,
     encoding: Encoding.Utf8,
@@ -42,15 +42,15 @@ module Builder = {
   // MAPPERS
   let start = (request: Request.t) =>
     Constructing(request.headers, request.method, request.body);
-  let failWith = (code, header, ~message=?) =>
+  let failWith = (~message=?, code, header) =>
     Finish(Response.fail(code, header, ~message?));
 
   let andThen =
       (
-        applyWith: 'a => option('b),
-        ~failureCode=Failure.Status500,
+        ~failureCode=Status.Error500,
         ~failureMessage=?,
         ~failureContentType="text/plain",
+        applyWith: 'a => option('b),
         theValue,
       ) =>
     switch (theValue) {
@@ -88,12 +88,10 @@ module Builder = {
     setHeader("Content-Type", contentType, calc);
   let setContentLength = (contentLength, builder) =>
     setHeader("Content-Length", contentLength, builder);
-  let send =
-      (success: Status.Success.code, ~encoding=Encoding.Utf8, body)
-      : Response.t =>
+  let send = (success: Status.code, ~encoding=Encoding.Utf8, body): Response.t =>
     switch (body) {
-    | Constructing(header, method, a) => {
-        code: Success(success),
+    | Constructing(header, _, a) => {
+        code: success,
         headers: header,
         body: a,
         encoding,
@@ -112,7 +110,7 @@ module Builder = {
       ) =>
     andThen(
       parser,
-      ~failureCode=Failure.Status400,
+      ~failureCode=Status.BadRequest400,
       ~failureMessage,
       ~failureContentType,
       calc,
@@ -132,17 +130,17 @@ module Builder = {
 
   /* Stringifies the Json object, sets content type to application/json and
    * returns the response */
-  let sendJson = (~code=Success.Status200, body: t(Js.Json.t)) =>
+  let sendJson = (~code=Status.Ok200, body: t(Js.Json.t)) =>
     body
     |> map(Js.Json.stringify)
     |> map(value => Some(value))
     |> setContentType("application/json")
     |> send(code);
 
-  let sendHtml = (~code=Success.Status200, body) =>
+  let sendHtml = (~code=Status.Ok200, body) =>
     body |> setContentType("text/html") |> send(code);
 
-  let sendText = (text: string, ~code=Success.Status200, body) =>
+  let sendText = (~code=Status.Ok200, text: string, body) =>
     body
     |> map(_ => Some(text))
     |> setContentType("text/plain")
@@ -180,7 +178,7 @@ module App = {
       )
     | None =>
       Response.fail(
-        Status.Failure.Status400,
+        Status.BadRequest400,
         convertedHeaders,
         ~message="No method",
       )
@@ -193,15 +191,24 @@ module App = {
   let makeSpec = (spec: spec, ~notFound="<h1>404 - Not found</h1>"): t =>
     request =>
       Spec.parse(spec, request.method, request.path, request.body)
-      ->Belt.Option.map(_, handler => handler(Builder.start(request)))
-      ->Belt.Option.getWithDefault(
-          _,
-          Response.fail(
-            Status.Failure.Status404,
-            Header.Map.singleton("Content-Type", "application/html"),
-            ~message=notFound,
-          ),
-        );
+      |> (
+        result =>
+          switch (result) {
+          | Success(handler) => handler(Builder.start(request))
+          | Failed(code, msg) =>
+            code == Status.NotFound404
+              ? Response.fail(
+                  Status.NotFound404,
+                  Header.Map.singleton("Content-Type", "application/html"),
+                  ~message=notFound,
+                )
+              : Response.fail(
+                  code,
+                  Header.Map.singleton("Content-Type", "application/html"),
+                  ~message=msg,
+                )
+          }
+      );
 
   let start = (port, server) => Unsafe.server(port, unsafeHandle(server));
 

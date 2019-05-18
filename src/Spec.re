@@ -1,6 +1,8 @@
 // Shameless port from
 // https://github.com/elm/package.elm-lang.org/blob/master/src/backend/Server/Router.hs
 
+//------------------------------------------------------------------------------
+// TYPES
 type t('a, 'b) =
   | Top: t('a, 'a)
   | Exact(string): t('a, 'a)
@@ -10,9 +12,8 @@ type t('a, 'b) =
   | Integer: t(int => 'a, 'a)
   | OneOf(list(t('a, 'b))): t('a, 'b)
   | Method(HttpMethod.t): t('a, 'a)
-  | Body(string => option('a)): t('a => 'b, 'b)
+  | Body(Status.code, string, string => option('a)): t('a => 'b, 'b)
   | Optional(string, string => option('a)): t(option('a) => 'b, 'b);
-
 type querySet = Belt.Map.String.t(string);
 type state('a) = {
   url: string,
@@ -23,9 +24,155 @@ type state('a) = {
   method: HttpMethod.t,
   body: string,
 };
+module Progress = {
+  type t('a) =
+    | Parsing(list('a))
+    | Failed(Status.code, string);
+
+  let map: type a b. (a => b, t(a)) => t(b) =
+    (f, l) =>
+      switch (l) {
+      | Parsing(states) => Parsing(List.map(f, states))
+      | Failed(code, msg) => Failed(code, msg)
+      };
+
+  let concat: type a. t(t(a)) => t(a) =
+    l =>
+      switch (l) {
+      | Parsing(states) =>
+        List.fold_right(
+          (results, n) =>
+            switch (results) {
+            | Parsing(states) =>
+              switch (n) {
+              | Parsing(nStates) => Parsing(List.append(nStates, states))
+              | Failed(code, msg) => Failed(code, msg)
+              }
+            | Failed(code, msg) => Failed(code, msg)
+            },
+          states,
+          Parsing([]),
+        )
+      | Failed(code, msg) => Failed(code, msg)
+      };
+  let concatMap: type a b. (a => t(b), t(a)) => t(b) =
+    (f, l) => map(f, l) |> concat;
+};
 let tap = (str, value) => {
   Js.log2(str ++ ": ", value);
   value;
+};
+module Chomp = {
+  //----------------------------------------------------------------------------
+  // CHOMP EXACT
+  let rec isSubString = (small, big, offset, i, smallLen) =>
+    if (i == smallLen) {
+      true;
+    } else if (small.[i] == big.[offset + i]) {
+      isSubString(small, big, offset, i + 1, smallLen);
+    } else {
+      false;
+    };
+
+  let exact = (small, big, offset, length) => {
+    let smallLen = String.length(small);
+    if (length < smallLen || smallLen == 0) {
+      ((-1), length);
+    } else if (!isSubString(small, big, offset, 0, smallLen)) {
+      ((-1), length);
+    } else {
+      let newOffset = offset + smallLen;
+      let newLength = length - smallLen;
+      if (newLength == 0) {
+        (newOffset, newLength);
+      } else if (big.[newOffset] == '/'
+                 || big.[newOffset] == '&'
+                 || big.[newOffset] == '='
+                 || big.[newOffset] == '?') {
+        (newOffset + 1, newLength - 1);
+      } else {
+        ((-1), length);
+      };
+    };
+  };
+
+  //----------------------------------------------------------------------------
+  // CHOMP INT
+  let charDigitToInt = (str): option(int) =>
+    switch (str) {
+    | '0'..'9' => Some(int_of_char(str) - 48)
+    | _ => None
+    };
+
+  let rec intHelp = (url, offset, length, n) =>
+    if (length == 0) {
+      (offset, length, n);
+    } else {
+      let word = url.[offset];
+      switch (charDigitToInt(word)) {
+      | Some(i) => intHelp(url, offset + 1, length - 1, n * 10 + i)
+      | None =>
+        word == '/' || word == '&' || word == '=' || word == '?'
+          ? (offset + 1, length - 1, n) : (offset, length, n)
+      };
+    };
+
+  let int = (url, offset, length) =>
+    if (length == 0) {
+      (offset, length, 0);
+    } else {
+      let word = url.[offset];
+      switch (charDigitToInt(word)) {
+      | Some(i) => intHelp(url, offset + 1, length - 1, i)
+      | None => (offset, length, 0)
+      };
+    };
+
+  //----------------------------------------------------------------------------
+  // CHOMP SEGMENT
+  let rec segment = (url, offset, length) =>
+    if (length == 0) {
+      (offset, offset, length);
+    } else if (url.[offset] == '/'
+               || url.[offset] == '&'
+               || url.[offset] == '='
+               || url.[offset] == '?') {
+      (offset, offset + 1, length - 1);
+    } else {
+      segment(url, offset + 1, length - 1);
+    };
+  let extractValue = (str, start, upto) =>
+    String.sub(str, start, upto - start);
+
+  //----------------------------------------------------------------------------
+  // CHOMP QUERIES
+  // Query parameters are unordered while argument list is ordered. Thus we parse
+  // all the parameters and check if they contain each.
+  let rec queries = (url, offset, length, set): querySet => {
+    let (endOffsetKey, offsetKey, lengthKey) = segment(url, offset, length);
+
+    if (offsetKey == offset) {
+      set;
+    } else {
+      let key = extractValue(url, offset, endOffsetKey);
+      let (endOffsetVal, nextOffset, nextLength) =
+        segment(url, offsetKey, lengthKey);
+      if (nextOffset == offsetKey) {
+        set;
+      } else {
+        let queryValue = extractValue(url, offsetKey, endOffsetVal);
+        let newSet = Belt.Map.String.set(set, key, queryValue);
+        queries(url, nextOffset, nextLength, newSet);
+      };
+    };
+  };
+};
+
+module Query = {
+  type t('a) = string => option('a);
+  // All strings are valid
+  let text = value => Some(value);
+  let int = Belt.Int.fromString;
 };
 
 //------------------------------------------------------------------------------
@@ -37,158 +184,54 @@ let mapHelp = (func, state) =>
       value;
     }
   );
-let concatMap = (f, l) => List.concat(List.map(f, l));
-let extractValue = (str, start, upto) =>
-  String.sub(str, start, upto - start);
 
-//------------------------------------------------------------------------------
-// CHOMP EXACT
-let rec isSubString = (small, big, offset, i, smallLen) =>
-  if (i == smallLen) {
-    true;
-  } else if (small.[i] == big.[offset + i]) {
-    isSubString(small, big, offset, i + 1, smallLen);
-  } else {
-    false;
-  };
-
-let chompExact = (small, big, offset, length) => {
-  let smallLen = String.length(small);
-  if (length < smallLen || smallLen == 0) {
-    ((-1), length);
-  } else if (!isSubString(small, big, offset, 0, smallLen)) {
-    ((-1), length);
-  } else {
-    let newOffset = offset + smallLen;
-    let newLength = length - smallLen;
-    if (newLength == 0) {
-      (newOffset, newLength);
-    } else if (big.[newOffset] == '/'
-               || big.[newOffset] == '&'
-               || big.[newOffset] == '='
-               || big.[newOffset] == '?') {
-      (newOffset + 1, newLength - 1);
-    } else {
-      ((-1), length);
-    };
-  };
-};
-
-//------------------------------------------------------------------------------
-// CHOMP SEGMENT
-let rec chompSegment = (url, offset, length) =>
-  if (length == 0) {
-    (offset, offset, length);
-  } else if (url.[offset] == '/'
-             || url.[offset] == '&'
-             || url.[offset] == '='
-             || url.[offset] == '?') {
-    (offset, offset + 1, length - 1);
-  } else {
-    chompSegment(url, offset + 1, length - 1);
-  };
-
-//------------------------------------------------------------------------------
-// CHOMP QUERIES
-// Query parameters are unordered while argument list is ordered. Thus we parse
-// all the parameters and check if they contain each.
-let rec chompQueries = (url, offset, length, set): querySet => {
-  let (endOffsetKey, offsetKey, lengthKey) =
-    chompSegment(url, offset, length);
-
-  if (offsetKey == offset) {
-    set;
-  } else {
-    let key = extractValue(url, offset, endOffsetKey);
-    let (endOffsetVal, nextOffset, nextLength) =
-      chompSegment(url, offsetKey, lengthKey);
-    if (nextOffset == offsetKey) {
-      set;
-    } else {
-      let queryValue = extractValue(url, offsetKey, endOffsetVal);
-      let newSet = Belt.Map.String.set(set, key, queryValue);
-      chompQueries(url, nextOffset, nextLength, newSet);
-    };
-  };
-};
-
-//------------------------------------------------------------------------------
-// CHOMP INT
-let charDigitToInt = (str): option(int) =>
-  switch (str) {
-  | '0'..'9' => Some(int_of_char(str) - 48)
-  | _ => None
-  };
-
-let rec chompIntHelp = (url, offset, length, n) =>
-  if (length == 0) {
-    (offset, length, n);
-  } else {
-    let word = url.[offset];
-    switch (charDigitToInt(word)) {
-    | Some(i) => chompIntHelp(url, offset + 1, length - 1, n * 10 + i)
-    | None =>
-      word == '/' || word == '&' || word == '=' || word == '?'
-        ? (offset + 1, length - 1, n) : (offset, length, n)
-    };
-  };
-
-let chompInt = (url, offset, length) =>
-  if (length == 0) {
-    (offset, length, 0);
-  } else {
-    let word = url.[offset];
-    switch (charDigitToInt(word)) {
-    | Some(i) => chompIntHelp(url, offset + 1, length - 1, i)
-    | None => (offset, length, 0)
-    };
-  };
+// List.concat(List.map(f, l));
 //------------------------------------------------------------------------------
 // PARSING
-let rec attempt: type a b. (t(a, b), state(a)) => list(state(b)) =
+let rec attempt: type a b. (t(a, b), state(a)) => Progress.t(state(b)) =
   (route, state) => {
     switch (route) {
     | Top =>
       if (state.length == 0) {
-        [state];
+        Parsing([state]);
       } else {
-        [];
+        Parsing([]);
       }
 
     | Exact(str) =>
       let (newOffset, newLength) =
-        chompExact(str, state.url, state.offset, state.length);
+        Chomp.exact(str, state.url, state.offset, state.length);
       if (newOffset == (-1)) {
-        [];
+        Parsing([]);
       } else {
-        [{...state, offset: newOffset, length: newLength}];
+        Parsing([{...state, offset: newOffset, length: newLength}]);
       };
     | Integer =>
       let (newOffset, newLength, number) =
-        chompInt(state.url, state.offset, state.length);
+        Chomp.int(state.url, state.offset, state.length);
       if (newOffset <= state.offset) {
-        [];
+        Parsing([]);
       } else {
-        [
+        Parsing([
           {
             ...state,
             length: newLength,
             offset: newOffset,
             value: state.value(number),
           },
-        ];
+        ]);
       };
-    | Body(parser) =>
+    | Body(code, errorMessage, parser) =>
       switch (parser(state.body)) {
-      | Some(result) => [{...state, value: state.value(result)}]
-      | None => []
+      | Some(result) => Parsing([{...state, value: state.value(result)}])
+      | None => Failed(code, errorMessage)
       }
 
     | Optional(str, parse) =>
       let queries =
         Belt.Option.getWithDefault(
           state.queries,
-          chompQueries(
+          Chomp.queries(
             state.url,
             state.offset,
             state.length,
@@ -197,7 +240,8 @@ let rec attempt: type a b. (t(a, b), state(a)) => list(state(b)) =
         );
 
       switch (Belt.Map.String.get(queries, str)) {
-      | None => [
+      | None =>
+        Parsing([
           {
             ...state,
             url: "",
@@ -205,8 +249,9 @@ let rec attempt: type a b. (t(a, b), state(a)) => list(state(b)) =
             queries: Some(queries),
             value: state.value(None),
           },
-        ]
-      | Some(unparsed) => [
+        ])
+      | Some(unparsed) =>
+        Parsing([
           {
             ...state,
             url: "",
@@ -214,57 +259,62 @@ let rec attempt: type a b. (t(a, b), state(a)) => list(state(b)) =
             value: state.value(parse(unparsed)),
             queries: Some(queries),
           },
-        ]
+        ])
       };
     | Method(ofType) =>
       if (state.method == ofType) {
-        [state];
+        Parsing([state]);
       } else {
-        [];
+        Parsing([]);
       }
 
     | Custom(checker) =>
       let (endOffset, newOffset, newLength) =
-        chompSegment(state.url, state.offset, state.length);
+        Chomp.segment(state.url, state.offset, state.length);
       if (endOffset == state.offset) {
-        [];
+        Parsing([]);
       } else {
         let subString =
           String.sub(state.url, state.offset, endOffset - state.offset);
         switch (checker(subString)) {
-        | None => []
-        | Some(nextValue) => [
+        | None => Parsing([])
+        | Some(nextValue) =>
+          Parsing([
             {
               ...state,
               offset: newOffset,
               length: newLength,
               value: state.value(nextValue),
             },
-          ]
+          ])
         };
       };
     | Slash(before, after) =>
-      concatMap(attempt(after), attempt(before, state))
+      Progress.concatMap(attempt(after), attempt(before, state))
 
     | Map(subValue, subParser) =>
-      List.map(
+      Progress.map(
         mapHelp(state.value),
         attempt(subParser, {...state, value: subValue}),
       )
-
-    | OneOf(routes) => concatMap(p => attempt(p, state), routes)
+    | OneOf(routes) =>
+      Progress.concatMap(p => attempt(p, state), Parsing(routes))
     };
   };
 
-let rec parseHelp = states => {
-  switch (states) {
-  | [] => None
-  | [state, ...restStates] =>
+type result('a) =
+  | Success('a)
+  | Failed(Status.code, string);
+let rec parseHelp = results => {
+  switch (results) {
+  | Progress.Parsing([]) => Failed(Status.NotFound404, "Not found")
+  | Progress.Parsing([state, ...restStates]) =>
     if (state.length == 0) {
-      Some(state.value);
+      Success(state.value);
     } else {
-      parseHelp(restStates);
+      parseHelp(Progress.Parsing(restStates));
     }
+  | Progress.Failed(code, msg) => Failed(code, msg)
   };
 };
 let parse = (route: t('a => 'a, 'a), method, path, body) => {
@@ -308,8 +358,8 @@ let parseString = (route: t('a => 'b, 'b), path) => {
 //
 // EXAMPLE
 // let router =
-//      get [top ==> index,
-//           is "api" ^/^ is "user" ==> userHandle]
+//      get [top |> get(index),
+//           is "api" >- is "user" >- int |> get(userHandle)]
 let top = Top;
 let is = (str: string) => Exact(str);
 let int = Integer;
@@ -320,20 +370,29 @@ let map = (toMap: 'a, route: t('a, 'b)): t('b => 'c, 'c) =>
   Map(toMap, route);
 "user";
 let oneOf = (l: list(t('a, 'b))) => OneOf(l);
+let query = (str, f) => Optional(str, f);
 
 // Left associative operator. Use when you don't care about http method
 let (==>) = (route: t('a, 'b), handler: 'a): t('b => 'c, 'c) =>
   Map(handler, route);
 
-let jsonBody = (parser: Js.Json.t => 'a) =>
-  Body(str => Belt.Option.map(Json.parse(str), parser));
+let jsonBody =
+    (
+      ~failureCode=Status.BadRequest400,
+      ~failureMessage="Invalid Json body",
+      parser: Js.Json.t => 'a,
+    ) =>
+  Body(
+    failureCode,
+    failureMessage,
+    str => Belt.Option.map(Json.parse(str), parser),
+  );
 
 // let (<&>) = (route, (str, f)) =>
 //   Slash(
 //     Slash(route, Optional(str, value => parseString(f, value))),
 //     Optional(str, value => parseString(f, value)),
 //   );
-let query = (str, f) => Optional(str, value => parseString(f, value));
 
 // let options = (l: list(t(option('b) => 'a, 'a))) =>
 //   Optional(str, map(v => Some(v), f));

@@ -2,6 +2,7 @@
 'use strict';
 
 var Jest = require("@glennsl/bs-jest/src/jest.js");
+var Block = require("bs-platform/lib/js/block.js");
 var $$String = require("bs-platform/lib/js/string.js");
 var Spec$Cause = require("../src/Spec.bs.js");
 var Belt_MapString = require("bs-platform/lib/js/belt_MapString.js");
@@ -34,11 +35,11 @@ var oneOfSpec = Spec$Cause.oneOf(/* :: */[
 
 var getSpec = Spec$Cause.get(/* Arrived */0, Spec$Cause.is("world"));
 
-var querySpec = Spec$Cause.$eq$eq$great(Spec$Cause.query("hello", Spec$Cause.text), (function (s) {
+var querySpec = Spec$Cause.$eq$eq$great(Spec$Cause.query("hello", Spec$Cause.Query[/* text */0]), (function (s) {
         return /* ArrivedWithOptional */[s];
       }));
 
-var queriesSpec = Spec$Cause.$eq$eq$great(Spec$Cause.$great$neg(Spec$Cause.query("hello", Spec$Cause.text), Spec$Cause.query("world", Spec$Cause.text)), (function (s1, s2) {
+var queriesSpec = Spec$Cause.$eq$eq$great(Spec$Cause.$great$neg(Spec$Cause.query("hello", Spec$Cause.Query[/* text */0]), Spec$Cause.query("world", Spec$Cause.Query[/* text */0])), (function (s1, s2) {
         return /* ArrivedWithOptionals */[
                 s1,
                 s2
@@ -48,61 +49,61 @@ var queriesSpec = Spec$Cause.$eq$eq$great(Spec$Cause.$great$neg(Spec$Cause.query
 Jest.describe("Chompers chomp", (function (param) {
         Jest.test("segment chomps up until stop", (function (param) {
                 var url = "hello&end";
-                var match = Spec$Cause.chompSegment(url, 0, url.length);
+                var match = Spec$Cause.Chomp[/* segment */5](url, 0, url.length);
                 var subString = $$String.sub(url, 0, match[0]);
-                return Jest.Expect[/* toBe */2]("hello", Jest.Expect[/* expect */0](subString));
+                return Jest.Expect[/* toEqual */12]("hello", Jest.Expect[/* expect */0](subString));
               }));
         Jest.test("query chomps first arg", (function (param) {
                 var url = "hello=hi&world=tf";
-                var chomped = Spec$Cause.chompQueries(url, 0, url.length, Belt_MapString.empty);
-                return Jest.Expect[/* toBe */2]("hi", Jest.Expect[/* expect */0](Belt_MapString.get(chomped, "hello")));
+                var chomped = Spec$Cause.Chomp[/* queries */7](url, 0, url.length, Belt_MapString.empty);
+                return Jest.Expect[/* toEqual */12]("hi", Jest.Expect[/* expect */0](Belt_MapString.get(chomped, "hello")));
               }));
         return Jest.test("query chomps second arg", (function (param) {
                       var url = "hello=hi&world=tf";
-                      var chomped = Spec$Cause.chompQueries(url, 0, url.length, Belt_MapString.empty);
-                      return Jest.Expect[/* toBe */2]("tf", Jest.Expect[/* expect */0](Belt_MapString.get(chomped, "world")));
+                      var chomped = Spec$Cause.Chomp[/* queries */7](url, 0, url.length, Belt_MapString.empty);
+                      return Jest.Expect[/* toEqual */12]("tf", Jest.Expect[/* expect */0](Belt_MapString.get(chomped, "world")));
                     }));
       }));
 
 Jest.describe("Parses primitives", (function (param) {
         Jest.test("top", (function (param) {
-                return Jest.Expect[/* toBe */2](/* Arrived */0, Jest.Expect[/* expect */0](primitiveParse("/", topSpec)));
+                return Jest.Expect[/* toEqual */12](/* Success */Block.__(0, [/* Arrived */0]), Jest.Expect[/* expect */0](primitiveParse("/", topSpec)));
               }));
         Jest.test("is", (function (param) {
-                return Jest.Expect[/* toBe */2](/* Arrived */0, Jest.Expect[/* expect */0](primitiveParse("/hello", isSpec)));
+                return Jest.Expect[/* toEqual */12](/* Success */Block.__(0, [/* Arrived */0]), Jest.Expect[/* expect */0](primitiveParse("/hello", isSpec)));
               }));
         Jest.test("text", (function (param) {
-                return Jest.Expect[/* toEqual */12](/* ArrivedWithString */["hello"], Jest.Expect[/* expect */0](primitiveParse("/hello", textSpec)));
+                return Jest.Expect[/* toEqual */12](/* Success */Block.__(0, [/* ArrivedWithString */["hello"]]), Jest.Expect[/* expect */0](primitiveParse("/hello", textSpec)));
               }));
         Jest.test("slash", (function (param) {
-                return Jest.Expect[/* toBe */2](/* Arrived */0, Jest.Expect[/* expect */0](primitiveParse("/hello/world", slashSpec)));
+                return Jest.Expect[/* toEqual */12](/* Success */Block.__(0, [/* Arrived */0]), Jest.Expect[/* expect */0](primitiveParse("/hello/world", slashSpec)));
               }));
         Jest.test("int", (function (param) {
-                return Jest.Expect[/* toEqual */12](/* ArrivedWithInt */[5], Jest.Expect[/* expect */0](primitiveParse("/5", intSpec)));
+                return Jest.Expect[/* toEqual */12](/* Success */Block.__(0, [/* ArrivedWithInt */[5]]), Jest.Expect[/* expect */0](primitiveParse("/5", intSpec)));
               }));
         Jest.test("oneOf first branch", (function (param) {
-                return Jest.Expect[/* toBe */2](/* First */0, Jest.Expect[/* expect */0](primitiveParse("/hello", oneOfSpec)));
+                return Jest.Expect[/* toEqual */12](/* Success */Block.__(0, [/* First */0]), Jest.Expect[/* expect */0](primitiveParse("/hello", oneOfSpec)));
               }));
         Jest.test("oneOf second branch", (function (param) {
-                return Jest.Expect[/* toBe */2](/* Second */1, Jest.Expect[/* expect */0](primitiveParse("/world", oneOfSpec)));
+                return Jest.Expect[/* toEqual */12](/* Success */Block.__(0, [/* Second */1]), Jest.Expect[/* expect */0](primitiveParse("/world", oneOfSpec)));
               }));
         Jest.test("httpmethods", (function (param) {
-                return Jest.Expect[/* toBe */2](/* Arrived */0, Jest.Expect[/* expect */0](primitiveParse("/world", getSpec)));
+                return Jest.Expect[/* toEqual */12](/* Success */Block.__(0, [/* Arrived */0]), Jest.Expect[/* expect */0](primitiveParse("/world", getSpec)));
               }));
         Jest.test("query", (function (param) {
-                return Jest.Expect[/* toEqual */12](/* ArrivedWithOptional */["damn"], Jest.Expect[/* expect */0](primitiveParse("?hello=damn", querySpec)));
+                return Jest.Expect[/* toEqual */12](/* Success */Block.__(0, [/* ArrivedWithOptional */["damn"]]), Jest.Expect[/* expect */0](primitiveParse("?hello=damn", querySpec)));
               }));
         Jest.test("queries", (function (param) {
-                return Jest.Expect[/* toEqual */12](/* ArrivedWithOptionals */[
-                            "hi",
-                            "tf"
-                          ], Jest.Expect[/* expect */0](primitiveParse("?hello=hi&world=tf", queriesSpec)));
+                return Jest.Expect[/* toEqual */12](/* Success */Block.__(0, [/* ArrivedWithOptionals */[
+                                "hi",
+                                "tf"
+                              ]]), Jest.Expect[/* expect */0](primitiveParse("?hello=hi&world=tf", queriesSpec)));
               }));
         return Jest.test("queries reverse order", (function (param) {
-                      return Jest.Expect[/* toEqual */12](/* ArrivedWithOptionals */[
-                                  "hi",
-                                  "tf"
-                                ], Jest.Expect[/* expect */0](primitiveParse("?world=tf&hello=hi", queriesSpec)));
+                      return Jest.Expect[/* toEqual */12](/* Success */Block.__(0, [/* ArrivedWithOptionals */[
+                                      "hi",
+                                      "tf"
+                                    ]]), Jest.Expect[/* expect */0](primitiveParse("?world=tf&hello=hi", queriesSpec)));
                     }));
       }));
 

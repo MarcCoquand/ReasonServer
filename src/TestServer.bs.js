@@ -10,14 +10,14 @@ function decoder(json) {
 }
 
 function postHandler($$int, user) {
-  var partial_arg = /* Status200 */0;
+  var partial_arg = /* Created201 */1;
   var partial_arg$1 = Server$Cause.Builder[/* sendText */12];
   return (function (param) {
-      return partial_arg$1("updated user!", partial_arg, param);
+      return partial_arg$1(partial_arg, "updated user!", param);
     });
 }
 
-var api = Spec$Cause.post(postHandler, Spec$Cause.$great$neg(Spec$Cause.$great$neg(Spec$Cause.is("user"), Spec$Cause.$$int), Spec$Cause.jsonBody(decoder)));
+var api = Spec$Cause.post(postHandler, Spec$Cause.$great$neg(Spec$Cause.$$int, Spec$Cause.jsonBody(undefined, undefined, decoder)));
 
 var Spec = /* module */[/* api */api];
 
@@ -27,13 +27,39 @@ var User = /* module */[
   /* Spec */Spec
 ];
 
+function decoder$1(json) {
+  return /* record */[
+          /* name */Json_decode.field("name", Json_decode.string, json),
+          /* published */Json_decode.field("published", Json_decode.$$int, json),
+          /* author */Json_decode.field("author", Json_decode.string, json)
+        ];
+}
+
+function books(published, author) {
+  var partial_arg = Server$Cause.Builder[/* sendText */12];
+  return (function (param) {
+      return partial_arg(undefined, "Here are your books!", param);
+    });
+}
+
+var api$1 = Spec$Cause.get(books, Spec$Cause.$great$neg(Spec$Cause.query("published", Spec$Cause.Query[/* int */1]), Spec$Cause.query("author", Spec$Cause.Query[/* text */0])));
+
+var Spec$1 = /* module */[/* api */api$1];
+
+var Books = /* module */[
+  /* decoder */decoder$1,
+  /* books */books,
+  /* Spec */Spec$1
+];
+
 var myApp = Spec$Cause.$great$neg(Spec$Cause.is("api"), Spec$Cause.oneOf(/* :: */[
-          api,
+          Spec$Cause.$great$neg(Spec$Cause.is("user"), api),
           /* [] */0
         ]));
 
 var Specification = /* module */[/* myApp */myApp];
 
 exports.User = User;
+exports.Books = Books;
 exports.Specification = Specification;
 /* api Not a pure module */
