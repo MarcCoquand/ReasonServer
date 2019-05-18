@@ -5,14 +5,16 @@ module Response: {
     body: option(string),
     encoding: Cause.Encoding.t,
   };
+};
 /** A response sent from the server. You should never need to manually
 create this unless it is for testing purposes. Instead use Builders.*/
-};
 module Builder: {
   /** Builders allow us to construct responses with automatic failure handling.
   If any step in the builder fails it will show the failure and skip
   the rest of the operations. */
-  type t('a);
+  type t('a) =
+    | Constructing(Header.Map.t(string), HttpMethod.t, 'a)
+    | Finish(Response.t);
   let andThen:
     (
       ~failureCode: Cause.Status.code=?,
@@ -57,17 +59,17 @@ module Builder: {
     Response.t;
   let sendJson: (~code: Cause.Status.code=?, t(Js.Json.t)) => Response.t;
   /** Set content type to application/json and returns the resopnse. */
-  let sendHtml:
-    (~code: Cause.Status.code=?, string,t('a) => Response.t;
+  let sendHtml: (~code: Cause.Status.code=?, string, t('a)) => Response.t;
   /** Set content type to application/html and returns the resopnse. */
   let sendText: (~code: Cause.Status.code=?, string, t('a)) => Response.t;
-  /** Set content type to text/plain and returns the resopnse. */
+  /** Set content type to text/plain and returns the resopnse. */;
 };
 module App: {
   type t = Cause.Request.t => Response.t;
-  type responseBuilder;
+  type responseBuilder = Builder.t(string) => Response.t;
   /** [responseBuilder] constructs a response using Builder.*/
-  type spec = Cause.Spec.t(responseBuilder => responseBuilder, responseBuilder);
+  type spec =
+    Cause.Spec.t(responseBuilder => responseBuilder, responseBuilder);
   /** This type represent the specification for
       routing and parsing of request information. It ensures that the handler gets all
       the correct information. This allows you to piece together smaller apis
@@ -111,7 +113,7 @@ module App: {
 
       For more information on how to write Specs see Spec.rei.
       */
-  let runRequest:(Request.t, spec) => Response.t
+  let runRequest: (Request.t, spec) => Response.t;
   /** Run a given request against a spec. Useful for testing. */
   let makeApp: (spec, ~notFound: string=?) => t;
   /** [makeApp fromSpec ~notFound="<h1>Not found</h1>"]

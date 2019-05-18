@@ -124,8 +124,8 @@ module Builder = {
 // APP
 module App = {
   type t = Request.t => Response.t;
-  type routerApp = Builder.t(string) => Response.t;
-  type spec = Spec.t(routerApp => routerApp, routerApp);
+  type responseBuilder = Builder.t(string) => Response.t;
+  type spec = Spec.t(responseBuilder => responseBuilder, responseBuilder);
 
   //----------------------------------------------------------------------------
   // CONVERT REQUEST TO NODE REQUEST

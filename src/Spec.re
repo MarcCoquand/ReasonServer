@@ -368,7 +368,6 @@ module Required = {
     Map(toMap, route);
   "user";
   let oneOf = (l: list(t('a, 'b))) => OneOf(l);
-  let query = (str, f) => Optional(str, f);
 
   let jsonBody =
       (
@@ -388,9 +387,7 @@ module Required = {
 //     Optional(str, value => parseString(f, value)),
 //   );
 
-// let options = (l: list(t(option('b) => 'a, 'a))) =>
-//   Optional(str, map(v => Some(v), f));
-
+let query = (str, f) => Optional(str, f);
 //------------------------------------------------------------------------------
 // ROUTER HTTP METHOD COMBINATORS
 // Left associative operator. Use when you don't care about http method

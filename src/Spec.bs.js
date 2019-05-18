@@ -506,13 +506,6 @@ function oneOf(l) {
   return /* OneOf */Block.__(4, [l]);
 }
 
-function query(str, f) {
-  return /* Optional */Block.__(7, [
-            str,
-            f
-          ]);
-}
-
 function jsonBody($staropt$star, $staropt$star$1, parser) {
   var failureCode = $staropt$star !== undefined ? $staropt$star : /* BadRequest400 */15;
   var failureMessage = $staropt$star$1 !== undefined ? $staropt$star$1 : "Invalid Json body";
@@ -533,9 +526,15 @@ var Required = /* module */[
   /* custom */custom,
   /* map */map$1,
   /* oneOf */oneOf,
-  /* query */query,
   /* jsonBody */jsonBody
 ];
+
+function query(str, f) {
+  return /* Optional */Block.__(7, [
+            str,
+            f
+          ]);
+}
 
 function $eq$eq$great(route, handler) {
   return /* Map */Block.__(3, [
@@ -660,6 +659,7 @@ exports.parseHelp = parseHelp;
 exports.parse = parse;
 exports.parseString = parseString;
 exports.Required = Required;
+exports.query = query;
 exports.$eq$eq$great = $eq$eq$great;
 exports.get = get;
 exports.post = post;
