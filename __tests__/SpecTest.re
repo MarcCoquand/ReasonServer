@@ -65,6 +65,14 @@ describe("Chompers chomp", () => {
       expect(Belt.Map.String.get(chomped, "world")) |> toEqual(Some("tf"));
     })
   );
+  Expect.(
+    test("query chomps right to left", () => {
+      let url = "url/thing?hello=hi&world=tf";
+      let chomped =
+        Chomp.queries(url, 0, String.length(url), Belt.Map.String.empty);
+      expect(Belt.Map.String.get(chomped, "world")) |> toEqual(Some("tf"));
+    })
+  );
 });
 
 describe("Parses primitives", () => {
