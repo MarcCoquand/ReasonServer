@@ -3,6 +3,11 @@
 
 var Block = require("bs-platform/lib/js/block.js");
 var Curry = require("bs-platform/lib/js/curry.js");
+var Caml_option = require("bs-platform/lib/js/caml_option.js");
+
+function evaluate(computation, value) {
+  return Curry._1(computation[0], value);
+}
 
 function $great$eq$great(f, g, x) {
   var res1 = Curry._1(f, x);
@@ -33,16 +38,46 @@ function $great$great$eq(x, f) {
   }
 }
 
-function $great$great$great(param, param$1) {
-  var g = param$1[0];
-  var f = param[0];
+function toOption(a) {
+  if (a.tag) {
+    return undefined;
+  } else {
+    return Caml_option.some(a[0]);
+  }
+}
+
+function attempt($staropt$star, $staropt$star$1, $staropt$star$2, f, value) {
+  var message = $staropt$star !== undefined ? $staropt$star : "Internal server error";
+  var code = $staropt$star$1 !== undefined ? $staropt$star$1 : /* Error500 */34;
+  var contenttype = $staropt$star$2 !== undefined ? $staropt$star$2 : /* Html */0;
+  var res = Curry._1(f, value);
+  if (res !== undefined) {
+    return /* Ok */Block.__(0, [Caml_option.valFromOption(res)]);
+  } else {
+    return /* Failed */Block.__(1, [
+              message,
+              code,
+              contenttype
+            ]);
+  }
+}
+
+function andThen(param, param$1) {
+  var f = param$1[0];
+  var g = param[0];
   return /* Run */[(function (param) {
               return $great$eq$great(f, g, param);
             })];
 }
 
-function arr(f) {
+function run(f) {
   return /* Run */[f];
+}
+
+function runFailsafe(f) {
+  return /* Run */[(function (s) {
+              return /* Ok */Block.__(0, [Curry._1(f, s)]);
+            })];
 }
 
 function first(arrow) {
@@ -69,17 +104,17 @@ function second(arrow) {
             })];
 }
 
-function $star$star$star(f, g) {
-  return $great$great$great(first(f), second(g));
+function both(f, g) {
+  return andThen(second(g), first(f));
 }
 
-function $unknown$unknown$unknown(f, g) {
-  return $great$great$great(/* Run */[(function (b) {
+function branch(f, g) {
+  return andThen(both(f, g), /* Run */[(function (b) {
                   return /* Ok */Block.__(0, [/* tuple */[
                               b,
                               b
                             ]]);
-                })], $star$star$star(f, g));
+                })]);
 }
 
 function merge(f) {
@@ -88,12 +123,12 @@ function merge(f) {
             })];
 }
 
-function $caret$great$great(f, a) {
-  return $great$great$great(/* Run */[f], a);
+function precompose(f, a) {
+  return andThen(a, /* Run */[f]);
 }
 
-function $great$great$caret(f, a) {
-  return $great$great$great(a, /* Run */[f]);
+function postcompose(f, a) {
+  return andThen(/* Run */[f], a);
 }
 
 function eitherFunc(f, g, v) {
@@ -113,25 +148,29 @@ function $pipe$pipe$pipe(fA, gA) {
 }
 
 function $plus$plus$plus(f, g) {
-  return $pipe$pipe$pipe($great$great$great(f, /* Run */[(function (v) {
+  return $pipe$pipe$pipe(andThen(/* Run */[(function (v) {
                       return /* Ok */Block.__(0, [/* Left */Block.__(1, [v])]);
-                    })]), $great$great$great(g, /* Run */[(function (v) {
+                    })], f), andThen(/* Run */[(function (v) {
                       return /* Ok */Block.__(0, [/* Right */Block.__(0, [v])]);
-                    })]));
+                    })], g));
 }
 
+exports.evaluate = evaluate;
 exports.$great$eq$great = $great$eq$great;
 exports.pure = pure;
 exports.$great$great$eq = $great$great$eq;
-exports.$great$great$great = $great$great$great;
-exports.arr = arr;
+exports.toOption = toOption;
+exports.attempt = attempt;
+exports.andThen = andThen;
+exports.run = run;
+exports.runFailsafe = runFailsafe;
 exports.first = first;
 exports.second = second;
-exports.$star$star$star = $star$star$star;
-exports.$unknown$unknown$unknown = $unknown$unknown$unknown;
+exports.both = both;
+exports.branch = branch;
 exports.merge = merge;
-exports.$caret$great$great = $caret$great$great;
-exports.$great$great$caret = $great$great$caret;
+exports.precompose = precompose;
+exports.postcompose = postcompose;
 exports.eitherFunc = eitherFunc;
 exports.$pipe$pipe$pipe = $pipe$pipe$pipe;
 exports.$plus$plus$plus = $plus$plus$plus;
