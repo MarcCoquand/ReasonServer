@@ -8,6 +8,7 @@ var $$String = require("bs-platform/lib/js/string.js");
 var Caml_option = require("bs-platform/lib/js/caml_option.js");
 var Chomp$Cause = require("./Chomp.bs.js");
 var Result$Cause = require("./Result.bs.js");
+var Request$Cause = require("./Request.bs.js");
 
 function concatMap(f, l) {
   return List.concat(List.map(f, l));
@@ -25,8 +26,7 @@ function mapHelp(func, state) {
           /* accept */state[/* accept */7],
           /* method */state[/* method */8],
           /* rawBody */state[/* rawBody */9],
-          /* code */state[/* code */10],
-          /* encoding */state[/* encoding */11]
+          /* encoding */state[/* encoding */10]
         ];
 }
 
@@ -59,8 +59,7 @@ function attempt(route, state) {
                   /* accept */state[/* accept */7],
                   /* method */state[/* method */8],
                   /* rawBody */state[/* rawBody */9],
-                  /* code */state[/* code */10],
-                  /* encoding */state[/* encoding */11]
+                  /* encoding */state[/* encoding */10]
                 ],
                 /* [] */0
               ];
@@ -86,8 +85,7 @@ function attempt(route, state) {
                       /* accept */state[/* accept */7],
                       /* method */state[/* method */8],
                       /* rawBody */state[/* rawBody */9],
-                      /* code */state[/* code */10],
-                      /* encoding */state[/* encoding */11]
+                      /* encoding */state[/* encoding */10]
                     ],
                     /* [] */0
                   ];
@@ -113,8 +111,7 @@ function attempt(route, state) {
                         /* accept */state[/* accept */7],
                         /* method */state[/* method */8],
                         /* rawBody */state[/* rawBody */9],
-                        /* code */state[/* code */10],
-                        /* encoding */state[/* encoding */11]
+                        /* encoding */state[/* encoding */10]
                       ],
                       /* [] */0
                     ];
@@ -144,8 +141,7 @@ function attempt(route, state) {
                           /* accept */state[/* accept */7],
                           /* method */state[/* method */8],
                           /* rawBody */state[/* rawBody */9],
-                          /* code */state[/* code */10],
-                          /* encoding */state[/* encoding */11]
+                          /* encoding */state[/* encoding */10]
                         ]));
       case 4 : 
           return List.concat(List.map((function (p) {
@@ -188,8 +184,8 @@ function $great$neg(a, b) {
 
 function $eq$eq$great(a, b) {
   return /* Map */Block.__(3, [
-            a,
-            b
+            b,
+            a
           ]);
 }
 
@@ -224,10 +220,31 @@ function parse(route, req) {
                                 /* accept */v[/* accept */7],
                                 /* method */v[/* method */8],
                                 /* rawBody */v[/* rawBody */9],
-                                /* code */v[/* code */10],
-                                /* encoding */v[/* encoding */11]
+                                /* encoding */v[/* encoding */10]
                               ]));
               }), req);
+}
+
+function id(x) {
+  return x;
+}
+
+function primitiveParse(router, uri) {
+  var firstDropped = $$String.sub(uri, 1, uri.length - 1 | 0);
+  var request = Request$Cause.mockGet(uri);
+  return parseHelp(attempt(router, /* record */[
+                  /* url */firstDropped,
+                  /* offset */request[/* offset */1],
+                  /* length */uri.length - 1 | 0,
+                  /* arguments */request[/* arguments */3],
+                  /* queries */request[/* queries */4],
+                  /* contentType */request[/* contentType */5],
+                  /* headers */request[/* headers */6],
+                  /* accept */request[/* accept */7],
+                  /* method */request[/* method */8],
+                  /* rawBody */request[/* rawBody */9],
+                  /* encoding */request[/* encoding */10]
+                ]));
 }
 
 var top = /* Top */0;
@@ -248,4 +265,6 @@ exports.$great$neg = $great$neg;
 exports.$eq$eq$great = $eq$eq$great;
 exports.parseHelp = parseHelp;
 exports.parse = parse;
-/* No side effect */
+exports.id = id;
+exports.primitiveParse = primitiveParse;
+/* Request-Cause Not a pure module */

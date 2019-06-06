@@ -3,16 +3,22 @@
 
 var Curry = require("bs-platform/lib/js/curry.js");
 var Belt_Id = require("bs-platform/lib/js/belt_Id.js");
+var Belt_Int = require("bs-platform/lib/js/belt_Int.js");
 var Belt_Map = require("bs-platform/lib/js/belt_Map.js");
 var Caml_obj = require("bs-platform/lib/js/caml_obj.js");
 var Belt_Option = require("bs-platform/lib/js/belt_Option.js");
 var Caml_option = require("bs-platform/lib/js/caml_option.js");
 var Chomp$Cause = require("./Chomp.bs.js");
+var Header$Cause = require("./Header.bs.js");
 var Belt_MapString = require("bs-platform/lib/js/belt_MapString.js");
 
 var cmp = Caml_obj.caml_compare;
 
 var MediaComparer = Belt_Id.MakeComparable(/* module */[/* cmp */cmp]);
+
+function id(x) {
+  return x;
+}
 
 function queries(url, _offset, _length, _set) {
   while(true) {
@@ -53,13 +59,34 @@ function map(f, content) {
           /* accept */content[/* accept */7],
           /* method */content[/* method */8],
           /* rawBody */content[/* rawBody */9],
-          /* code */content[/* code */10],
-          /* encoding */content[/* encoding */11]
+          /* encoding */content[/* encoding */10]
         ];
 }
 
-function compose(f, g, x) {
-  return Curry._1(f, Curry._1(g, x));
+function contramap(f, content) {
+  var newCont = map((function (x, x$1) {
+          return x$1;
+        }), content);
+  var partial_arg = newCont[/* arguments */3];
+  return /* record */[
+          /* url */content[/* url */0],
+          /* offset */content[/* offset */1],
+          /* length */content[/* length */2],
+          /* arguments */(function (param) {
+              return Curry._1(f, Curry._1(partial_arg, param));
+            }),
+          /* queries */content[/* queries */4],
+          /* contentType */content[/* contentType */5],
+          /* headers */content[/* headers */6],
+          /* accept */content[/* accept */7],
+          /* method */content[/* method */8],
+          /* rawBody */content[/* rawBody */9],
+          /* encoding */content[/* encoding */10]
+        ];
+}
+
+function compose(f, x) {
+  return Curry._1(f, x);
 }
 
 function decodeBody(accepts, req) {
@@ -79,8 +106,7 @@ function decodeBody(accepts, req) {
                         /* accept */req[/* accept */7],
                         /* method */req[/* method */8],
                         /* rawBody */req[/* rawBody */9],
-                        /* code */req[/* code */10],
-                        /* encoding */req[/* encoding */11]
+                        /* encoding */req[/* encoding */10]
                       ];
               }));
 }
@@ -100,8 +126,7 @@ function query(str, parse, req) {
             /* accept */req[/* accept */7],
             /* method */req[/* method */8],
             /* rawBody */req[/* rawBody */9],
-            /* code */req[/* code */10],
-            /* encoding */req[/* encoding */11]
+            /* encoding */req[/* encoding */10]
           ];
   } else {
     return /* record */[
@@ -115,16 +140,61 @@ function query(str, parse, req) {
             /* accept */req[/* accept */7],
             /* method */req[/* method */8],
             /* rawBody */req[/* rawBody */9],
-            /* code */req[/* code */10],
-            /* encoding */req[/* encoding */11]
+            /* encoding */req[/* encoding */10]
           ];
   }
 }
 
+function string(s) {
+  return Caml_option.some(s);
+}
+
+var Optional = /* module */[
+  /* string */string,
+  /* int */Belt_Int.fromString
+];
+
+function mock(uri, body, method_) {
+  return /* record */[
+          /* url */uri,
+          /* offset */0,
+          /* length */uri.length,
+          /* arguments */id,
+          /* queries */undefined,
+          /* contentType : Plain */2,
+          /* headers */Header$Cause.$$Map[/* empty */0],
+          /* accept : Plain */2,
+          /* method */method_,
+          /* rawBody */body,
+          /* encoding : Ascii */0
+        ];
+}
+
+function mockGet(uri) {
+  return /* record */[
+          /* url */uri,
+          /* offset */0,
+          /* length */uri.length,
+          /* arguments */id,
+          /* queries */undefined,
+          /* contentType : Plain */2,
+          /* headers */Header$Cause.$$Map[/* empty */0],
+          /* accept : Plain */2,
+          /* method : GET */0,
+          /* rawBody */"",
+          /* encoding : Ascii */0
+        ];
+}
+
 exports.MediaComparer = MediaComparer;
+exports.id = id;
 exports.queries = queries;
 exports.map = map;
+exports.contramap = contramap;
 exports.compose = compose;
 exports.decodeBody = decodeBody;
 exports.query = query;
+exports.Optional = Optional;
+exports.mock = mock;
+exports.mockGet = mockGet;
 /* MediaComparer Not a pure module */

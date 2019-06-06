@@ -11,12 +11,7 @@ let concatMap = (f, l) => List.map(f, l) |> List.concat;
 //------------------------------------------------------------------------------
 // HELPERS
 let mapHelp = (func, state: Request.t('a)) =>
-  {...state, arguments: func(state.arguments)}
-  |> (
-    value => {
-      value;
-    }
-  );
+  {...state, arguments: func(state.arguments)} |> (value => value);
 
 //------------------------------------------------------------------------------
 // PARSING
@@ -96,7 +91,7 @@ let map = (toMap: 'a, route: t('a, 'b)): t('b => 'c, 'c) =>
 "user";
 let oneOf = (l: list(t('a, 'b))) => OneOf(l);
 let (>-) = (a, b) => Slash(a, b);
-let (==>) = (a, b) => Map(a, b);
+let (==>) = (a, b) => Map(b, a);
 
 let rec parseHelp = (results: list(Request.t('a))) => {
   switch (results) {
@@ -122,4 +117,20 @@ let parse: type a b. (t(a => b, b), Request.t(a => b)) => Result.t(b) =
         |> parseHelp,
       req,
     );
+  };
+
+let id: type a. a => a = x => x;
+
+let primitiveParse: type a b. (t(a => a, a), string) => option(a) =
+  (router, uri) => {
+    let firstDropped = String.sub(uri, 1, String.length(uri) - 1);
+    Request.mockGet(uri)
+    |> (
+      (request: Request.t(a => a)) =>
+        attempt(
+          router,
+          {...request, url: firstDropped, length: String.length(uri) - 1},
+        )
+    )
+    |> parseHelp;
   };

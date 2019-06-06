@@ -1,4 +1,4 @@
-type content('a) = {
+type t('a) = {
   code: Status.code,
   headers: Header.Map.t(string),
   contentType: MediaType.t,
@@ -13,7 +13,7 @@ let error =
       ~code=Status.Error500,
       ~method=MediaType.Html,
     )
-    : content(string) => {
+    : t(string) => {
   code,
   headers: Header.Map.empty,
   contentType: method,
@@ -21,24 +21,48 @@ let error =
   encoding: Encoding.Ascii,
 };
 
-type t('a) = content('a => string);
+let id: type a. a => a = x => x;
+let map: type a b. (a => b, t(a)) => t(b) =
+  (f, content) => {...content, body: f(content.body)};
 
-let encode = (unencodedBody, response): content(string) => {
-  ...response,
-  body: response.body(unencodedBody),
+let lift = (~code, s): t('a) => {
+  code,
+  headers: Header.Map.empty,
+  contentType: MediaType.Plain,
+  body: s,
+  encoding: Encoding.Ascii,
 };
 
 // Contramap the response
-let setEncoder: type a b. (a => b, t(b)) => t(a) =
-  (cf, res) => {...res, body: compose(res.body, cf)};
+let contramap: type a c. (a => c, t(c)) => Result.computation(t(a), t(c)) =
+  (cf, res) => Result.runFailsafe(a => {...a, body: cf(a.body)});
 
-let setCode = (code: Status.code, res: t('a)): t('a) => {...res, code};
+let setBody: type a b. (a, t(b)) => t(a) =
+  (f, content) => {...content, body: f};
 
-let setContentType = (mediaType, res): t('a) => {
-  ...res,
-  contentType: mediaType,
+let setCode = (code: Status.code, response: t('a)): t('a) => {
+  ...response,
+  code,
 };
-let json = (encoder: 'a => Js.Json.t, res: t(string)): t('a) =>
-  setEncoder(Js.Json.stringify, res)
-  |> setEncoder(encoder)
+
+let setContentType = (mediaType, response) =>
+  response
+  |> Result.andThen(
+       Result.runFailsafe(res => {...res, contentType: mediaType}),
+     );
+
+let encode = (value: 'a, res: t('a => string)) => {
+  ...res,
+  body: res.body(value),
+};
+
+let setEncoder = (encoder: 'a => string, res) => {...res, body: encoder};
+
+let json = (encoder: 'a => Js.Json.t, res) => {
+  Result.runFailsafe(b => {...b, body: encoder(b.body)})
+  |> Result.andThen(
+       Result.runFailsafe(a => {...a, body: Json.stringify(a.body)}),
+     )
+  |> Result.andThen(res)
   |> setContentType(MediaType.Json);
+};
