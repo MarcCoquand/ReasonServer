@@ -21,31 +21,28 @@ let echoInt = (b: option(int), c: option(int)) =>
 
 let writeHi = Result.Ok("Hello");
 
-let myBodyHandler = (myB: myBody): myBody => id(myB);
+let myBodyHandler = (myB: myBody): Result.t(myBody) => Result.Ok(id(myB));
 
-let myBodyRoute = builder =>
-  builder
-  |> accept([Contenttype.json(bodyEncoder)])
-  |> contentType(~errorContent=MediaType.Plain, [Accept.json(bodyDecoder)])
-  |> handle(Status.Ok200, myBodyHandler);
-
-let writeHi =
-  specification
-  |> accept([
-       Contenttype.plain((s: string) => s),
-       Contenttype.json(Json.Encode.string),
-     ])
-  |> handle(Status.Partial206, writeHi);
+// let writeHi = builder =>
+//   builder
+//   |> accept([
+//        Contenttype.plain((s: string) => s),
+//        Contenttype.json(Json.Encode.string),
+//      ])
+//   |> handle(Status.Partial206, writeHi);
 
 let echoIntRoute =
-  specification
-  |> query("world", Belt.Int.fromString)
-  |> query("worl", Belt.Int.fromString)
-  |> accept([(MediaType.Plain, (s: string) => s)])
+  query("world", Belt.Int.fromString)
+  |> Result.andThen(query("worl", Belt.Int.fromString))
   |> handle(Status.Ok200, echoInt);
 
+let myBodyRoute =
+  contentType(~errorContent=MediaType.Plain, [Accept.json(bodyDecoder)])
+  |> handle(Status.Ok200, myBodyHandler)
+  |> accept([Contenttype.json(bodyEncoder)]);
+
 describe("Spec", () =>
-  Expect.(test("top", () =>
-            expect(1) |> toEqual(1)
+  Expect.(test("Body route", () =>
+
           ))
 );

@@ -46,6 +46,31 @@ function toOption(a) {
   }
 }
 
+function dimap(f, g, computation) {
+  var m = computation[0];
+  return /* Run */[(function (param) {
+              return $great$eq$great((function (param) {
+                            return $great$eq$great((function (value) {
+                                          return /* Ok */Block.__(0, [Curry._1(f, value)]);
+                                        }), m, param);
+                          }), (function (result) {
+                            return /* Ok */Block.__(0, [Curry._1(g, result)]);
+                          }), param);
+            })];
+}
+
+function id(x) {
+  return x;
+}
+
+function lmap(f, computation) {
+  return dimap(f, id, computation);
+}
+
+function rmap(g, computation) {
+  return dimap(id, g, computation);
+}
+
 function attempt($staropt$star, $staropt$star$1, $staropt$star$2, f, value) {
   var message = $staropt$star !== undefined ? $staropt$star : "Internal server error";
   var code = $staropt$star$1 !== undefined ? $staropt$star$1 : /* Error500 */34;
@@ -117,18 +142,21 @@ function branch(f, g) {
                 })]);
 }
 
-function merge(f) {
-  return /* Run */[(function (param) {
-              return /* Ok */Block.__(0, [Curry._2(f, param[0], param[1])]);
-            })];
+function merge(computation) {
+  return dimap(id, (function (param) {
+                return Curry._1(param[0], param[1]);
+              }), first(computation));
 }
 
-function precompose(f, a) {
-  return andThen(a, /* Run */[f]);
-}
-
-function postcompose(f, a) {
-  return andThen(/* Run */[f], a);
+function strong(f, x) {
+  return dimap((function (a) {
+                return /* tuple */[
+                        a,
+                        a
+                      ];
+              }), (function (param) {
+                return Curry._2(f, param[1], param[0]);
+              }), first(x));
 }
 
 function eitherFunc(f, g, v) {
@@ -160,6 +188,10 @@ exports.$great$eq$great = $great$eq$great;
 exports.pure = pure;
 exports.$great$great$eq = $great$great$eq;
 exports.toOption = toOption;
+exports.dimap = dimap;
+exports.id = id;
+exports.lmap = lmap;
+exports.rmap = rmap;
 exports.attempt = attempt;
 exports.andThen = andThen;
 exports.run = run;
@@ -169,8 +201,7 @@ exports.second = second;
 exports.both = both;
 exports.branch = branch;
 exports.merge = merge;
-exports.precompose = precompose;
-exports.postcompose = postcompose;
+exports.strong = strong;
 exports.eitherFunc = eitherFunc;
 exports.$pipe$pipe$pipe = $pipe$pipe$pipe;
 exports.$plus$plus$plus = $plus$plus$plus;

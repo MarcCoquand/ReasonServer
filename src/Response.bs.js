@@ -4,7 +4,6 @@
 var Json = require("@glennsl/bs-json/src/Json.bs.js");
 var Curry = require("bs-platform/lib/js/curry.js");
 var Header$Cause = require("./Header.bs.js");
-var Result$Cause = require("./Result.bs.js");
 
 function compose(f, g, x) {
   return Curry._1(f, Curry._1(g, x));
@@ -23,51 +22,29 @@ function error($staropt$star, $staropt$star$1, $staropt$star$2) {
         ];
 }
 
+function map(f, response) {
+  return /* record */[
+          /* code */response[/* code */0],
+          /* headers */response[/* headers */1],
+          /* contentType */response[/* contentType */2],
+          /* body */Curry._1(f, response[/* body */3]),
+          /* encoding */response[/* encoding */4]
+        ];
+}
+
 function id(x) {
   return x;
 }
 
-function map(f, content) {
-  return /* record */[
-          /* code */content[/* code */0],
-          /* headers */content[/* headers */1],
-          /* contentType */content[/* contentType */2],
-          /* body */Curry._1(f, content[/* body */3]),
-          /* encoding */content[/* encoding */4]
-        ];
-}
+var lift_001 = /* headers */Header$Cause.$$Map[/* empty */0];
 
-function lift(code, s) {
-  return /* record */[
-          /* code */code,
-          /* headers */Header$Cause.$$Map[/* empty */0],
-          /* contentType : Plain */2,
-          /* body */s,
-          /* encoding : Ascii */0
-        ];
-}
-
-function contramap(cf, res) {
-  return Result$Cause.runFailsafe((function (a) {
-                return /* record */[
-                        /* code */a[/* code */0],
-                        /* headers */a[/* headers */1],
-                        /* contentType */a[/* contentType */2],
-                        /* body */Curry._1(cf, a[/* body */3]),
-                        /* encoding */a[/* encoding */4]
-                      ];
-              }));
-}
-
-function setBody(f, content) {
-  return /* record */[
-          /* code */content[/* code */0],
-          /* headers */content[/* headers */1],
-          /* contentType */content[/* contentType */2],
-          /* body */f,
-          /* encoding */content[/* encoding */4]
-        ];
-}
+var lift = /* record */[
+  /* code : Ok200 */0,
+  lift_001,
+  /* contentType : Plain */2,
+  /* body : NoBody */0,
+  /* encoding : Ascii */0
+];
 
 function setCode(code, response) {
   return /* record */[
@@ -80,67 +57,28 @@ function setCode(code, response) {
 }
 
 function setContentType(mediaType, response) {
-  return Result$Cause.andThen(Result$Cause.runFailsafe((function (res) {
-                    return /* record */[
-                            /* code */res[/* code */0],
-                            /* headers */res[/* headers */1],
-                            /* contentType */mediaType,
-                            /* body */res[/* body */3],
-                            /* encoding */res[/* encoding */4]
-                          ];
-                  })), response);
-}
-
-function encode(value, res) {
   return /* record */[
-          /* code */res[/* code */0],
-          /* headers */res[/* headers */1],
-          /* contentType */res[/* contentType */2],
-          /* body */Curry._1(res[/* body */3], value),
-          /* encoding */res[/* encoding */4]
+          /* code */response[/* code */0],
+          /* headers */response[/* headers */1],
+          /* contentType */mediaType,
+          /* body */response[/* body */3],
+          /* encoding */response[/* encoding */4]
         ];
 }
 
-function setEncoder(encoder, res) {
-  return /* record */[
-          /* code */res[/* code */0],
-          /* headers */res[/* headers */1],
-          /* contentType */res[/* contentType */2],
-          /* body */encoder,
-          /* encoding */res[/* encoding */4]
-        ];
-}
+var setEncoder = map;
 
-function json(encoder, res) {
-  return setContentType(/* Json */1, Result$Cause.andThen(res, Result$Cause.andThen(Result$Cause.runFailsafe((function (a) {
-                            return /* record */[
-                                    /* code */a[/* code */0],
-                                    /* headers */a[/* headers */1],
-                                    /* contentType */a[/* contentType */2],
-                                    /* body */Json.stringify(a[/* body */3]),
-                                    /* encoding */a[/* encoding */4]
-                                  ];
-                          })), Result$Cause.runFailsafe((function (b) {
-                            return /* record */[
-                                    /* code */b[/* code */0],
-                                    /* headers */b[/* headers */1],
-                                    /* contentType */b[/* contentType */2],
-                                    /* body */Curry._1(encoder, b[/* body */3]),
-                                    /* encoding */b[/* encoding */4]
-                                  ];
-                          })))));
+function json(encoder, response) {
+  return setContentType(/* Json */1, map(Json.stringify, map(encoder, response)));
 }
 
 exports.compose = compose;
 exports.error = error;
-exports.id = id;
 exports.map = map;
+exports.id = id;
 exports.lift = lift;
-exports.contramap = contramap;
-exports.setBody = setBody;
 exports.setCode = setCode;
 exports.setContentType = setContentType;
-exports.encode = encode;
 exports.setEncoder = setEncoder;
 exports.json = json;
 /* Header-Cause Not a pure module */

@@ -5,7 +5,6 @@ var Json = require("@glennsl/bs-json/src/Json.bs.js");
 var $$Array = require("bs-platform/lib/js/array.js");
 var Curry = require("bs-platform/lib/js/curry.js");
 var Belt_Map = require("bs-platform/lib/js/belt_Map.js");
-var Uri$Cause = require("./Uri.bs.js");
 var Belt_Option = require("bs-platform/lib/js/belt_Option.js");
 var Caml_option = require("bs-platform/lib/js/caml_option.js");
 var Json_decode = require("@glennsl/bs-json/src/Json_decode.bs.js");
@@ -17,6 +16,12 @@ var Caml_js_exceptions = require("bs-platform/lib/js/caml_js_exceptions.js");
 
 function id(x) {
   return x;
+}
+
+function setHandler(handler, builder) {
+  return Result$Cause.lmap((function (param) {
+                return Request$Cause.pure(handler, param);
+              }), builder);
 }
 
 function compose(f, g, x) {
@@ -74,70 +79,53 @@ function accept(contentTypes, builder) {
                   return Belt_Map.get(partial_arg, param);
                 }), req[/* accept */7]);
   };
-  return Result$Cause.andThen(Result$Cause.merge(Response$Cause.setBody), Result$Cause.branch(Result$Cause.run(makeEncoder), builder));
+  return Result$Cause.andThen(Result$Cause.merge(Result$Cause.runFailsafe(Response$Cause.map)), Result$Cause.branch(Result$Cause.run(makeEncoder), builder));
 }
 
-function query(parameter, parser, builder) {
-  return Result$Cause.andThen(builder, Result$Cause.runFailsafe((function (param) {
+function query(parameter, parser) {
+  return Result$Cause.first(Result$Cause.runFailsafe((function (param) {
                     return Request$Cause.query(parameter, parser, param);
                   })));
 }
 
-function contentType(errorContent, contentTypes, builder) {
+function contentType(errorContent, contentTypes) {
   var acceptsMap = Belt_Map.fromArray($$Array.of_list(contentTypes), Request$Cause.MediaComparer);
   var decodeBody = function (req) {
     return Result$Cause.attempt("Could not parse body with content type: " + MediaType$Cause.toString(req[/* contentType */5]), /* BadRequest400 */15, errorContent, (function (param) {
                   return Request$Cause.decodeBody(acceptsMap, param);
                 }), req);
   };
-  return Result$Cause.andThen(builder, Result$Cause.run(decodeBody));
+  return Result$Cause.first(Result$Cause.run(decodeBody));
 }
 
-function route(router, builder) {
-  return Result$Cause.andThen(builder, Result$Cause.run((function (param) {
-                    return Uri$Cause.parse(router, param);
-                  })));
-}
-
-function setHandler(handler, req) {
-  return Request$Cause.map((function (param) {
-                return handler;
-              }), req);
-}
-
-function start(s) {
-  var match = s[/* arguments */3];
-  if (match.tag) {
-    return Response$Cause.error(match[0], match[1], match[2]);
-  } else {
-    return Response$Cause.lift(/* Ok200 */0, match[0]);
-  }
-}
-
-var specification = Result$Cause.runFailsafe(start);
-
-function handle(successCode, handler, builder) {
-  return Result$Cause.andThen(Result$Cause.runFailsafe((function (param) {
-                    return Response$Cause.setCode(successCode, param);
-                  })), Result$Cause.andThen(Result$Cause.merge(Response$Cause.encode), Result$Cause.branch(Result$Cause.run((function (req) {
-                            return req[/* arguments */3];
-                          })), Result$Cause.andThen(builder, Result$Cause.runFailsafe((function (param) {
-                                return Request$Cause.map((function (param) {
-                                              return handler;
-                                            }), param);
-                              }))))));
+function handle(code, handler, builder) {
+  return Result$Cause.dimap((function (request) {
+                return /* tuple */[
+                        Request$Cause.pure(handler, request),
+                        Response$Cause.lift
+                      ];
+              }), (function (param) {
+                return Response$Cause.setCode(code, param);
+              }), Result$Cause.andThen(Result$Cause.merge(Result$Cause.runFailsafe((function (body, response) {
+                            return /* record */[
+                                    /* code */response[/* code */0],
+                                    /* headers */response[/* headers */1],
+                                    /* contentType */response[/* contentType */2],
+                                    /* body */body,
+                                    /* encoding */response[/* encoding */4]
+                                  ];
+                          }))), Result$Cause.andThen(Result$Cause.first(Result$Cause.run((function (request) {
+                                return request[/* arguments */3];
+                              }))), builder)));
 }
 
 exports.id = id;
+exports.setHandler = setHandler;
 exports.compose = compose;
 exports.Accept = Accept;
 exports.Contenttype = Contenttype;
 exports.accept = accept;
 exports.query = query;
 exports.contentType = contentType;
-exports.route = route;
-exports.setHandler = setHandler;
-exports.start = start;
-exports.specification = specification;
 exports.handle = handle;
-/* specification Not a pure module */
+/* Request-Cause Not a pure module */

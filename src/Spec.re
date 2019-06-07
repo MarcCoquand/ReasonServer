@@ -10,6 +10,8 @@ type encoded = string;
 type t('a, 'b) = Result.computation('a, 'b);
 let id: type a. a => a = x => x;
 
+let setHandler = (handler, builder) => lmap(Request.pure(handler), builder);
+
 let compose = (f, g, x) => f(g(x));
 module Accept = {
   let json = (decoder: Json.Decode.decoder('a)) => (
@@ -23,6 +25,7 @@ module Accept = {
         ),
   );
 };
+
 module Contenttype = {
   let plain = (encoder: 'a => string) => (MediaType.Plain, a => encoder(a));
   let json = (encoder: 'a => Js.Json.t) => (
@@ -36,11 +39,8 @@ module Contenttype = {
 */
 let accept:
   type a b.
-    (
-      list((MediaType.t, b => string)),
-      t(Request.t(a), Response.t(string))
-    ) =>
-    t(Request.t(a), Response.t(b => string)) =
+    (list((MediaType.t, b => string)), t(Request.t(a), Response.t(b))) =>
+    t(Request.t(a), Response.t(string)) =
   (contentTypes, builder) => {
     let makeList = x =>
       Belt.Map.fromArray(
@@ -60,7 +60,9 @@ let accept:
     // request =>                             => Response.setEncoder
     //           \                           /
     //            --- response -------------
-    builder |> branch(run(makeEncoder)) |> andThen(merge(Response.setBody));
+    builder
+    |> branch(run(makeEncoder))
+    |> andThen(merge(runFailsafe(Response.map)));
   };
 
 /**
@@ -74,9 +76,8 @@ let accept:
  * </code></pre>
  */
 
-let query = (parameter, parser, builder) =>
-  Result.runFailsafe(Request.query(parameter, parser))
-  |> Result.andThen(builder);
+let query = (parameter, parser) =>
+  first(runFailsafe(Request.query(parameter, parser)));
 
 /**
  * Takes a list of content types to decode the body of the request.
@@ -91,11 +92,10 @@ let contentType:
   type a b c.
     (
       ~errorContent: MediaType.t,
-      list((MediaType.t, string => option(a))),
-      Result.computation(Request.t(b), Response.t(c))
+      list((MediaType.t, string => option(a)))
     ) =>
-    Result.computation(Request.t(a => b), Response.t(c)) =
-  (~errorContent, contentTypes, builder) => {
+    t((Request.t(a => b), c), (Cause.Request.t(b), c)) =
+  (~errorContent, contentTypes) => {
     let makeMap = x =>
       Belt.Map.fromArray(
         Array.of_list(x),
@@ -112,41 +112,41 @@ let contentType:
         Request.decodeBody(acceptsMap),
         req,
       );
-    Result.run(decodeBody) |> Result.andThen(builder);
+    first(run(decodeBody));
   };
 
-let route = (router, builder) =>
-  Result.run(Uri.parse(router)) |> Result.andThen(builder);
-
-let setHandler: type a b. (b, Request.t(a)) => Request.t(b) =
-  (handler, req) => Request.map(_ => handler, req);
-
-// let simplify =
-//     (builder: computation(Request.t(Result.t('a)), Response.t(string)))
-//     : computation(Request.t('a), Response.t(string)) =>
-//   run((req: Request.t(Result.t('a))) => req.arguments) |> builder;
-
-let start: Request.t(Result.t(string)) => Response.t(string) =
-  (s) => (
-    switch (s.arguments) {
-    | Result.Ok(m) => Response.lift(~code=Status.Ok200, m)
-    | Result.Failed(m, c, t) =>
-      Response.error(~message=m, ~code=c, ~method=t)
-    }:
-      Response.t('a)
-    //   | Result.Failed(m, c, t) => Response.error(~message=m, ~code=c, ~method=t)
-  );
-
-let specification = runFailsafe(start);
-
-let handle = (successCode, handler, builder) =>
-  //            --- handle(request)---
-  //           /                       \
-  // request =>                         => Response.encode
-  //           \                       /
-  //            --- setSuccessCode ---
-  runFailsafe(setHandler(handler))
-  |> andThen(builder)
-  |> branch(run((req: Request.t(Result.t('a))) => req.arguments))
-  |> andThen(merge(Response.encode))
-  |> andThen(runFailsafe(Response.setCode(successCode)));
+let handle:
+  type a b.
+    (
+      Status.code,
+      a,
+      t(
+        (Request.t(a), Response.t(Response.nobody)),
+        (Request.t(Result.t(b)), Response.t(Response.nobody)),
+      )
+    ) =>
+    t(Request.t(Request.nohandler), Response.t(b)) =
+  (code, handler, builder) =>
+    //            --- handle(request)---
+    //           /                       \
+    // request =>                         => Response.encode
+    //           \                       /
+    //            --- setSuccessCode ---
+    builder
+    |> andThen(
+         first(
+           run((request: Request.t(Result.t(b))) => request.arguments),
+         ),
+       )
+    |> andThen(
+         merge(
+           runFailsafe((body, response: Response.t('a)) =>
+             {...response, body}
+           ),
+         ),
+       )
+    |> dimap(
+         (request: Request.t(Request.nohandler)) =>
+           (Request.pure(handler, request), Response.lift),
+         Response.setCode(code),
+       );

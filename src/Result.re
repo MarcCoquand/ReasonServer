@@ -34,6 +34,17 @@ let toOption = a =>
   | Failed(_, _, _) => None
   };
 
+let dimap = (f, g, computation) => {
+  let Run(m) = computation;
+
+  Run((value => Ok(f(value))) >=> m >=> (result => Ok(g(result))));
+};
+let id: type a. a => a = x => x;
+
+let lmap = (f, computation) => dimap(f, id, computation);
+
+let rmap = (g, computation) => dimap(id, g, computation);
+
 // Run an operation that might fail and invoke the correct error response.
 let attempt =
     (
@@ -85,13 +96,10 @@ let both = (f, g) => first(f) |> andThen(second(g));
 // (&&&) operator from arrows
 let branch = (f, g) => run(b => pure((b, b))) |> andThen(both(f, g));
 
-let merge = f => run(((x, y)) => Ok(f(x, y)));
+let merge = computation => first(computation) |> rmap(((f, x)) => f(x));
 
-// (^>>) from arrows
-let precompose = (f, a) => run(f) |> andThen(a);
-
-// (>>^) from arrows
-let postcompose = (f, a) => a |> andThen(run(f));
+let strong = (f: ('a, 'b) => 'c, x: computation('a, 'b)) =>
+  dimap(a => (a, a), ((b, a)) => f(a, b), first(x));
 
 // ArrowChoice
 // When we parse the url we want to test all paths before throwing an error.

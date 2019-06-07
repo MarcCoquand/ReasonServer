@@ -8,6 +8,7 @@ var Spec$Cause = require("../src/Spec.bs.js");
 var Belt_Option = require("bs-platform/lib/js/belt_Option.js");
 var Json_decode = require("@glennsl/bs-json/src/Json_decode.bs.js");
 var Json_encode = require("@glennsl/bs-json/src/Json_encode.bs.js");
+var Result$Cause = require("../src/Result.bs.js");
 
 function id(x) {
   return x;
@@ -32,40 +33,18 @@ function echoInt(b, c) {
 }
 
 function myBodyHandler(myB) {
-  return myB;
+  return /* Ok */Block.__(0, [myB]);
 }
 
-function myBodyRoute(builder) {
-  return Spec$Cause.handle(/* Ok200 */0, myBodyHandler, Spec$Cause.contentType(/* Plain */2, /* :: */[
-                  Spec$Cause.Accept[/* json */0](bodyDecoder),
-                  /* [] */0
-                ], Spec$Cause.accept(/* :: */[
-                      Spec$Cause.Contenttype[/* json */1](bodyEncoder),
-                      /* [] */0
-                    ], builder)));
-}
+var echoIntRoute = Spec$Cause.handle(/* Ok200 */0, echoInt, Result$Cause.andThen(Spec$Cause.query("worl", Belt_Int.fromString), Spec$Cause.query("world", Belt_Int.fromString)));
 
-var writeHi = Spec$Cause.handle(/* Partial206 */6, /* Ok */Block.__(0, ["Hello"]), Spec$Cause.accept(/* :: */[
-          Spec$Cause.Contenttype[/* plain */0]((function (s) {
-                  return s;
-                })),
-          /* :: */[
-            Spec$Cause.Contenttype[/* json */1]((function (prim) {
-                    return prim;
-                  })),
-            /* [] */0
-          ]
-        ], Spec$Cause.specification));
-
-var echoIntRoute = Spec$Cause.handle(/* Ok200 */0, echoInt, Spec$Cause.accept(/* :: */[
-          /* tuple */[
-            /* Plain */2,
-            (function (s) {
-                return s;
-              })
-          ],
-          /* [] */0
-        ], Spec$Cause.query("worl", Belt_Int.fromString, Spec$Cause.query("world", Belt_Int.fromString, Spec$Cause.specification))));
+var myBodyRoute = Spec$Cause.accept(/* :: */[
+      Spec$Cause.Contenttype[/* json */1](bodyEncoder),
+      /* [] */0
+    ], Spec$Cause.handle(/* Ok200 */0, myBodyHandler, Spec$Cause.contentType(/* Plain */2, /* :: */[
+              Spec$Cause.Accept[/* json */0](bodyDecoder),
+              /* [] */0
+            ])));
 
 Jest.describe("Spec", (function (param) {
         return Jest.test("top", (function (param) {
@@ -73,12 +52,14 @@ Jest.describe("Spec", (function (param) {
                     }));
       }));
 
+var writeHi = /* Ok */Block.__(0, ["Hello"]);
+
 exports.id = id;
 exports.bodyEncoder = bodyEncoder;
 exports.bodyDecoder = bodyDecoder;
 exports.echoInt = echoInt;
-exports.myBodyHandler = myBodyHandler;
-exports.myBodyRoute = myBodyRoute;
 exports.writeHi = writeHi;
+exports.myBodyHandler = myBodyHandler;
 exports.echoIntRoute = echoIntRoute;
-/* writeHi Not a pure module */
+exports.myBodyRoute = myBodyRoute;
+/* echoIntRoute Not a pure module */

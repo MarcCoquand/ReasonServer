@@ -10,6 +10,8 @@ type contenttype('a) =
   Belt.Map.t(MediaType.t, 'a => string, MediaComparer.t);
 
 let id: type a. a => a = x => x;
+type nohandler =
+  | NoHandler;
 
 type t('a) = {
   url: string,
@@ -55,22 +57,26 @@ let map: type a b. (a => b, t(a)) => t(b) =
 
 let compose = (f, g, x) => f(g(x));
 
-let contramap: type a b. (a => b, t(b)) => t(a => b) =
-  (f, content) =>
-    map((x, x) => x, content)
-    |> (newCont => {...content, arguments: compose(f, newCont.arguments)});
+let pure = (value, request: t(nohandler)) => {...request, arguments: value};
+
+let apply: type a b. (a, t(a => b)) => t(b) =
+  (value, request) => {...request, arguments: request.arguments(value)};
+
+let applyCombine: type a b. (t(a => b), t(a)) => t(b) =
+  (request, value) => {
+    ...value,
+    arguments: request.arguments(value.arguments),
+  };
 
 let compose = (f, x) => f(x);
 
 //------------------------------------------------------------------------------
 // PARSING
 let decodeBody: type a b. (accepts(a), t(a => b)) => option(t(b)) =
-  (accepts, req) =>
-    Belt.Map.get(accepts, req.contentType)
-    ->Belt.Option.flatMap(_, decoder => decoder(req.rawBody))
-    ->Belt.Option.map(_, parsedBody =>
-        {...req, arguments: compose(req.arguments, parsedBody)}
-      );
+  (accepts, request) =>
+    Belt.Map.get(accepts, request.contentType)
+    ->Belt.Option.flatMap(_, decoder => decoder(request.rawBody))
+    ->Belt.Option.map(_, decodedBody => apply(decodedBody, request));
 
 let query:
   type a b. (string, string => option(a), t(option(a) => b)) => t(b) =
@@ -114,6 +120,20 @@ let mock = (uri, body, method) => {
   headers: Header.Map.empty,
   accept: MediaType.Plain,
   method,
+  rawBody: body,
+  encoding: Encoding.Ascii,
+};
+
+let mockPost = (uri, body) => {
+  url: uri,
+  offset: 0,
+  length: String.length(uri),
+  arguments: NoHandler,
+  queries: None,
+  contentType: MediaType.Plain,
+  headers: Header.Map.empty,
+  accept: MediaType.Plain,
+  method: HttpMethod.POST,
   rawBody: body,
   encoding: Encoding.Ascii,
 };
