@@ -79,6 +79,10 @@ function pure(value, request) {
         ];
 }
 
+function extractResult(request) {
+  return request[/* arguments */3];
+}
+
 function apply(value, request) {
   return /* record */[
           /* url */request[/* url */0],
@@ -221,6 +225,7 @@ exports.id = id;
 exports.queries = queries;
 exports.map = map;
 exports.pure = pure;
+exports.extractResult = extractResult;
 exports.apply = apply;
 exports.applyCombine = applyCombine;
 exports.compose = compose;

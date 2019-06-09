@@ -98,14 +98,15 @@ let rec parseHelp = (results: list(Request.t('a))) => {
   | [] => None
   | [state, ...restStates] =>
     if (state.length == 0) {
-      Some(state.arguments);
+      Some(state);
     } else {
       parseHelp(restStates);
     }
   };
 };
 
-let parse: type a b. (t(a => b, b), Request.t(a => b)) => Result.t(b) =
+let parse:
+  type a b. (t(a => b, b), Request.t(a => b)) => Result.t(Request.t(b)) =
   (route, req) => {
     let firstDropped = String.sub(req.url, 1, String.length(req.url) - 1);
     Result.attempt(
@@ -132,5 +133,8 @@ let primitiveParse: type a b. (t(a => a, a), string) => option(a) =
           {...request, url: firstDropped, length: String.length(uri) - 1},
         )
     )
-    |> parseHelp;
+    |> parseHelp
+    |> (
+      result => Belt.Option.map(result, (req: Request.t(a)) => req.arguments)
+    );
   };

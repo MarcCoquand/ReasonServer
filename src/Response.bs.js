@@ -17,7 +17,9 @@ function error($staropt$star, $staropt$star$1, $staropt$star$2) {
           /* code */code,
           /* headers */Header$Cause.$$Map[/* empty */0],
           /* contentType */method_,
-          /* body */message,
+          /* body */(function (param) {
+              return message;
+            }),
           /* encoding : Ascii */0
         ];
 }
@@ -32,6 +34,37 @@ function map(f, response) {
         ];
 }
 
+function contramap(cf, response) {
+  var partial_arg = response[/* body */3];
+  return /* record */[
+          /* code */response[/* code */0],
+          /* headers */response[/* headers */1],
+          /* contentType */response[/* contentType */2],
+          /* body */(function (param) {
+              return Curry._1(partial_arg, Curry._1(cf, param));
+            }),
+          /* encoding */response[/* encoding */4]
+        ];
+}
+
+function encode(value, response) {
+  return /* record */[
+          /* code */response[/* code */0],
+          /* headers */response[/* headers */1],
+          /* contentType */response[/* contentType */2],
+          /* body */Curry._1(response[/* body */3], value),
+          /* encoding */response[/* encoding */4]
+        ];
+}
+
+function fromResult(maybeResponse) {
+  if (maybeResponse.tag) {
+    return error(maybeResponse[0], maybeResponse[1], /* Html */0);
+  } else {
+    return maybeResponse[0];
+  }
+}
+
 function id(x) {
   return x;
 }
@@ -42,7 +75,7 @@ var lift = /* record */[
   /* code : Ok200 */0,
   lift_001,
   /* contentType : Plain */2,
-  /* body : NoBody */0,
+  /* body */id,
   /* encoding : Ascii */0
 ];
 
@@ -69,12 +102,15 @@ function setContentType(mediaType, response) {
 var setEncoder = map;
 
 function json(encoder, response) {
-  return setContentType(/* Json */1, map(Json.stringify, map(encoder, response)));
+  return setContentType(/* Json */1, contramap(encoder, contramap(Json.stringify, response)));
 }
 
 exports.compose = compose;
 exports.error = error;
 exports.map = map;
+exports.contramap = contramap;
+exports.encode = encode;
+exports.fromResult = fromResult;
 exports.id = id;
 exports.lift = lift;
 exports.setCode = setCode;

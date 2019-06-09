@@ -5,6 +5,7 @@ var List = require("bs-platform/lib/js/list.js");
 var Block = require("bs-platform/lib/js/block.js");
 var Curry = require("bs-platform/lib/js/curry.js");
 var $$String = require("bs-platform/lib/js/string.js");
+var Belt_Option = require("bs-platform/lib/js/belt_Option.js");
 var Caml_option = require("bs-platform/lib/js/caml_option.js");
 var Chomp$Cause = require("./Chomp.bs.js");
 var Result$Cause = require("./Result.bs.js");
@@ -195,7 +196,7 @@ function parseHelp(_results) {
     if (results) {
       var state = results[0];
       if (state[/* length */2] === 0) {
-        return Caml_option.some(state[/* arguments */3]);
+        return state;
       } else {
         _results = results[1];
         continue ;
@@ -232,19 +233,22 @@ function id(x) {
 function primitiveParse(router, uri) {
   var firstDropped = $$String.sub(uri, 1, uri.length - 1 | 0);
   var request = Request$Cause.mockGet(uri);
-  return parseHelp(attempt(router, /* record */[
-                  /* url */firstDropped,
-                  /* offset */request[/* offset */1],
-                  /* length */uri.length - 1 | 0,
-                  /* arguments */request[/* arguments */3],
-                  /* queries */request[/* queries */4],
-                  /* contentType */request[/* contentType */5],
-                  /* headers */request[/* headers */6],
-                  /* accept */request[/* accept */7],
-                  /* method */request[/* method */8],
-                  /* rawBody */request[/* rawBody */9],
-                  /* encoding */request[/* encoding */10]
-                ]));
+  var result = parseHelp(attempt(router, /* record */[
+            /* url */firstDropped,
+            /* offset */request[/* offset */1],
+            /* length */uri.length - 1 | 0,
+            /* arguments */request[/* arguments */3],
+            /* queries */request[/* queries */4],
+            /* contentType */request[/* contentType */5],
+            /* headers */request[/* headers */6],
+            /* accept */request[/* accept */7],
+            /* method */request[/* method */8],
+            /* rawBody */request[/* rawBody */9],
+            /* encoding */request[/* encoding */10]
+          ]));
+  return Belt_Option.map(result, (function (req) {
+                return req[/* arguments */3];
+              }));
 }
 
 var top = /* Top */0;

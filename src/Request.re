@@ -59,6 +59,8 @@ let compose = (f, g, x) => f(g(x));
 
 let pure = (value, request: t(nohandler)) => {...request, arguments: value};
 
+let extractResult = (request: t(Result.t('a))) => request.arguments;
+
 let apply: type a b. (a, t(a => b)) => t(b) =
   (value, request) => {...request, arguments: request.arguments(value)};
 

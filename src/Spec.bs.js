@@ -3,8 +3,10 @@
 
 var Json = require("@glennsl/bs-json/src/Json.bs.js");
 var $$Array = require("bs-platform/lib/js/array.js");
+var Block = require("bs-platform/lib/js/block.js");
 var Curry = require("bs-platform/lib/js/curry.js");
 var Belt_Map = require("bs-platform/lib/js/belt_Map.js");
+var Uri$Cause = require("./Uri.bs.js");
 var Belt_Option = require("bs-platform/lib/js/belt_Option.js");
 var Caml_option = require("bs-platform/lib/js/caml_option.js");
 var Json_decode = require("@glennsl/bs-json/src/Json_decode.bs.js");
@@ -18,10 +20,8 @@ function id(x) {
   return x;
 }
 
-function setHandler(handler, builder) {
-  return Result$Cause.lmap((function (param) {
-                return Request$Cause.pure(handler, param);
-              }), builder);
+function $pipe$colon(a, b) {
+  return Result$Cause.andThen(b, a);
 }
 
 function compose(f, g, x) {
@@ -72,14 +72,26 @@ var Contenttype = /* module */[
   /* json */json$1
 ];
 
-function accept(contentTypes, builder) {
+function accept(contentTypes) {
   var makeEncoder = function (req) {
     var partial_arg = Belt_Map.fromArray($$Array.of_list(contentTypes), Request$Cause.MediaComparer);
     return Result$Cause.attempt("Unsupported Media Type: " + MediaType$Cause.toString(req[/* accept */7]), /* UnsupportedMediaType415 */30, /* Html */0, (function (param) {
                   return Belt_Map.get(partial_arg, param);
                 }), req[/* accept */7]);
   };
-  return Result$Cause.andThen(Result$Cause.merge(Result$Cause.runFailsafe(Response$Cause.map)), Result$Cause.branch(Result$Cause.run(makeEncoder), builder));
+  return Result$Cause.andThen(Result$Cause.merge(Result$Cause.runFailsafe((function (param, response) {
+                        return /* tuple */[
+                                param[1],
+                                Response$Cause.contramap(param[0], response)
+                              ];
+                      }))), Result$Cause.first(Result$Cause.run((function (req) {
+                        return Result$Cause.$great$great$eq(makeEncoder(req), (function (encoder) {
+                                      return /* Ok */Block.__(0, [/* tuple */[
+                                                  encoder,
+                                                  req
+                                                ]]);
+                                    }));
+                      }))));
 }
 
 function query(parameter, parser) {
@@ -98,7 +110,16 @@ function contentType(errorContent, contentTypes) {
   return Result$Cause.first(Result$Cause.run(decodeBody));
 }
 
+function route(router) {
+  return Result$Cause.first(Result$Cause.run((function (param) {
+                    return Uri$Cause.parse(router, param);
+                  })));
+}
+
 function handle(code, handler, builder) {
+  var b = Result$Cause.merge(Result$Cause.runFailsafe(Response$Cause.encode));
+  var b$1 = Result$Cause.first(Result$Cause.run(Request$Cause.extractResult));
+  var a = Result$Cause.andThen(b$1, builder);
   return Result$Cause.dimap((function (request) {
                 return /* tuple */[
                         Request$Cause.pure(handler, request),
@@ -106,26 +127,17 @@ function handle(code, handler, builder) {
                       ];
               }), (function (param) {
                 return Response$Cause.setCode(code, param);
-              }), Result$Cause.andThen(Result$Cause.merge(Result$Cause.runFailsafe((function (body, response) {
-                            return /* record */[
-                                    /* code */response[/* code */0],
-                                    /* headers */response[/* headers */1],
-                                    /* contentType */response[/* contentType */2],
-                                    /* body */body,
-                                    /* encoding */response[/* encoding */4]
-                                  ];
-                          }))), Result$Cause.andThen(Result$Cause.first(Result$Cause.run((function (request) {
-                                return request[/* arguments */3];
-                              }))), builder)));
+              }), Result$Cause.andThen(b, a));
 }
 
 exports.id = id;
-exports.setHandler = setHandler;
+exports.$pipe$colon = $pipe$colon;
 exports.compose = compose;
 exports.Accept = Accept;
 exports.Contenttype = Contenttype;
 exports.accept = accept;
 exports.query = query;
 exports.contentType = contentType;
+exports.route = route;
 exports.handle = handle;
-/* Request-Cause Not a pure module */
+/* Uri-Cause Not a pure module */

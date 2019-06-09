@@ -1,10 +1,12 @@
-type t('a) = {
+type content('a) = {
   code: Status.code,
   headers: Header.Map.t(string),
   contentType: MediaType.t,
   body: 'a,
   encoding: Encoding.t,
 };
+
+type t('a) = content('a => string);
 let compose = (f, g, x) => f(g(x));
 type nobody =
   | NoBody;
@@ -15,24 +17,35 @@ let error =
       ~code=Status.Error500,
       ~method=MediaType.Html,
     )
-    : t(string) => {
+    : t('a) => {
   code,
   headers: Header.Map.empty,
   contentType: method,
-  body: message,
+  body: _ => message,
   encoding: Encoding.Ascii,
 };
 
-let map: type a b. (a => b, t(a)) => t(b) =
+let map: type a b. (a => b, content(a)) => content(b) =
   (f, response) => {...response, body: f(response.body)};
 
+let contramap: type a b. (a => b, t(b)) => t(a) =
+  (cf, response) => {...response, body: compose(response.body, cf)};
+
+let encode: type a. (a, t(a)) => content(string) =
+  (value, response) => {...response, body: response.body(value)};
+
+let fromResult = (maybeResponse: Result.t(t('a))) =>
+  switch (maybeResponse) {
+  | Ok(response) => response
+  | Failed(m, c, t) => error(~message=m, ~code=c, ~method=MediaType.Html)
+  };
 let id: type a. a => a = x => x;
 
-let lift: t(nobody) = {
+let lift = {
   code: Status.Ok200,
   headers: Header.Map.empty,
   contentType: MediaType.Plain,
-  body: NoBody,
+  body: id,
   encoding: Encoding.Ascii,
 };
 
@@ -40,7 +53,8 @@ let lift: t(nobody) = {
 // let contramap: type a b. (a => b, t(b)) => t(a) =
 //   (cf, response) => {...response, body: compose(response.body, cf)};
 
-let setCode = (code: Status.code, response: t('a)): t('a) => {
+let setCode =
+    (code: Status.code, response: content(string)): content(string) => {
   ...response,
   code,
 };
@@ -56,7 +70,7 @@ let setEncoder = (encoder: 'a => string, res) => map(encoder, res);
 
 let json = (encoder: 'a => Js.Json.t, response) => {
   response
-  |> map(encoder)
-  |> map(Json.stringify)
+  |> contramap(Json.stringify)
+  |> contramap(encoder)
   |> setContentType(MediaType.Json);
 };
