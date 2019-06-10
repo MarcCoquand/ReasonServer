@@ -11,13 +11,12 @@ open Result;
 type parsedUri;
 type encoded = string;
 
-type endpoint =
-  computation(Request.t(Request.nohandler), Response.content(string));
+type endpoint = computation(Request.t, Response.content(encoded));
 
-type t('a, 'b, 'c, 'd) =
+type t('handlerArguments, 'unencodedResponse) =
   Result.computation(
-    (Request.t('a), Response.t('b)),
-    (Request.t('c), Response.t('d)),
+    Request.t,
+    ('handlerArguments, Response.t('unencodedResponse)),
   );
 let id: type a. a => a = x => x;
 
@@ -50,38 +49,38 @@ module Contenttype = {
 * type. If content type is not found response will be error code 415.
 */
 let accept:
-  type handler unencoded.
-    list((MediaType.t, unencoded => string)) =>
-    t(handler, string, handler, unencoded) =
-  contentTypes => {
+  type a handler unencoded.
+    (list((MediaType.t, unencoded => string)), t(handler, string)) =>
+    t(handler, unencoded) =
+  (contentTypes, builder) => {
     let makeList = x =>
       Belt.Map.fromArray(
         Array.of_list(x),
         ~id=(module Request.MediaComparer),
       );
-    let makeEncoder = (req: Request.t(handler)) =>
+    let makeEncoder = (req: Request.t) =>
       Result.attempt(
         ~message="Unsupported Media Type: " ++ MediaType.toString(req.accept),
         ~code=Status.UnsupportedMediaType415,
-        ~contenttype=MediaType.Html,
+        ~contenttype=MediaType.Plain,
         Belt.Map.get(makeList(contentTypes)),
         req.accept,
       );
-    //               --- (encoder(req), req) ---
-    //              /                           \
-    // (req,res) =>                               => (req,encoded(res))
-    //              \                           /
-    //               --- response -------------
-    first(run(req => makeEncoder(req) >>= (encoder => Ok((encoder, req)))))
+    //           --- (encoder(req))--------
+    //          /                           \
+    // (req) =>                              => (handler,encoded(response))
+    //          \                           /
+    //           --- response -------------
+    builder
+    |> branch(run(makeEncoder))
     |> andThen(
          merge(
-           runFailsafe(((encoder, request), response) =>
-             (request, Response.contramap(encoder, response))
+           runFailsafe((encoder, (handler, response)) =>
+             (handler, Response.contramap(encoder, response))
            ),
          ),
        );
   };
-
 /**
  * Parses a query parameter from URL using a given parser and feeds it as an
  * optional parameter into the handler.
@@ -93,10 +92,16 @@ let accept:
  * </code></pre>
  */
 
-let query =
-    (parameter, parser)
-    : t(option('b) => 'handler, 'response, 'handler, 'response) =>
-  first(runFailsafe(Request.query(parameter, parser)));
+let query = (parameter, parser, builder): t('handler, 'response) =>
+  lmap(Request.parseQueries, builder)
+  |> branch(runFailsafe(Request.query(parameter, parser)))
+  |> andThen(
+       merge(
+         runFailsafe((arg, (handler, response)) =>
+           (handler(arg), response)
+         ),
+       ),
+     );
 
 /**
  * Takes a list of content types to decode the body of the request.
@@ -109,47 +114,44 @@ let query =
 
 let contentType:
   type a b c.
-    (
-      ~errorContent: MediaType.t,
-      list((MediaType.t, string => option(a)))
-    ) =>
-    t(a => b, c, b, c) =
-  (~errorContent, contentTypes) => {
+    (list((MediaType.t, string => option(a))), t(a => b, c)) => t(b, c) =
+  (contentTypes, builder) => {
     let makeMap = x =>
       Belt.Map.fromArray(
         Array.of_list(x),
         ~id=(module Request.MediaComparer),
       );
     let acceptsMap = makeMap(contentTypes);
-    let decodeBody = (req: Request.t(a => b)) =>
+    let decodeBody = (req: Request.t) =>
       Result.attempt(
         ~message=
           "Could not parse body with content type: "
           ++ MediaType.toString(req.contentType),
         ~code=Status.BadRequest400,
-        ~contenttype=errorContent,
+        ~contenttype=MediaType.Plain,
         Request.decodeBody(acceptsMap),
         req,
       );
-    first(run(decodeBody));
-  };
-
-let route: type a b c. Uri.t(a => b, b) => t(a => b, c, b, c) =
-  router => first(run(Uri.parse(router)));
-
-let handle:
-  type a b. (Status.code, a, t(a, string, Result.t(b), b)) => endpoint =
-  (code, handler, builder) =>
-    //                --- extract result ----
-    //               /                       \
-    // setHandler =>                           => Response.encode => successCode
-    //               \                       /
-    //                --- response ---------
     builder
-    |: first(run(Request.extractResult))
-    |: merge(runFailsafe(Response.encode))
-    |> dimap(
-         (request: Request.t(Request.nohandler)) =>
-           (Request.pure(handler, request), Response.lift),
-         Response.setCode(code),
+    |> branch(run(decodeBody))
+    |> andThen(
+         merge(
+           runFailsafe((arg, (handler, response)) =>
+             (handler(arg), response)
+           ),
+         ),
        );
+  };
+let endpoint = (~handler): t('a, 'b) =>
+  runFailsafe((request: Request.t) => (handler, Response.lift));
+
+let success = (~code=Status.Ok200, builder) =>
+  //                --- extract result ----
+  //               /                       \
+  // setHandler =>                           => Response.encode => successCode
+  //               \                       /
+  //                --- response ---------
+  builder
+  |> andThen(merge(runFailsafe(Response.encodeResult)))
+  |> andThen(run(id))
+  |> rmap(Response.setCode(code));

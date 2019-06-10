@@ -11,30 +11,35 @@ var Chomp$Cause = require("./Chomp.bs.js");
 var Result$Cause = require("./Result.bs.js");
 var Request$Cause = require("./Request.bs.js");
 
+function first(param) {
+  return param[0];
+}
+
+function second(param) {
+  return param[1];
+}
+
+function id(x) {
+  return x;
+}
+
 function concatMap(f, l) {
   return List.concat(List.map(f, l));
 }
 
-function mapHelp(func, state) {
-  return /* record */[
-          /* url */state[/* url */0],
-          /* offset */state[/* offset */1],
-          /* length */state[/* length */2],
-          /* arguments */Curry._1(func, state[/* arguments */3]),
-          /* queries */state[/* queries */4],
-          /* contentType */state[/* contentType */5],
-          /* headers */state[/* headers */6],
-          /* accept */state[/* accept */7],
-          /* method */state[/* method */8],
-          /* rawBody */state[/* rawBody */9],
-          /* encoding */state[/* encoding */10]
+function mapHelp(f, state) {
+  return /* tuple */[
+          Curry._1(f, first(state)),
+          second(state)
         ];
 }
 
 function attempt(route, state) {
+  var st = state[1];
+  var arg = state[0];
   if (typeof route === "number") {
     if (route === 0) {
-      if (state[/* length */2] === 0) {
+      if (st[/* length */2] === 0) {
         return /* :: */[
                 state,
                 /* [] */0
@@ -43,24 +48,26 @@ function attempt(route, state) {
         return /* [] */0;
       }
     } else {
-      var match = Chomp$Cause.$$int(state[/* url */0], state[/* offset */1], state[/* length */2]);
+      var match = Chomp$Cause.$$int(st[/* url */0], st[/* offset */1], st[/* length */2]);
       var newOffset = match[0];
-      if (newOffset <= state[/* offset */1]) {
+      if (newOffset <= st[/* offset */1]) {
         return /* [] */0;
       } else {
         return /* :: */[
-                /* record */[
-                  /* url */state[/* url */0],
-                  /* offset */newOffset,
-                  /* length */match[1],
-                  /* arguments */Curry._1(state[/* arguments */3], match[2]),
-                  /* queries */state[/* queries */4],
-                  /* contentType */state[/* contentType */5],
-                  /* headers */state[/* headers */6],
-                  /* accept */state[/* accept */7],
-                  /* method */state[/* method */8],
-                  /* rawBody */state[/* rawBody */9],
-                  /* encoding */state[/* encoding */10]
+                /* tuple */[
+                  Curry._1(arg, match[2]),
+                  /* record */[
+                    /* url */st[/* url */0],
+                    /* offset */newOffset,
+                    /* length */match[1],
+                    /* queries */st[/* queries */3],
+                    /* contentType */st[/* contentType */4],
+                    /* headers */st[/* headers */5],
+                    /* accept */st[/* accept */6],
+                    /* method */st[/* method */7],
+                    /* rawBody */st[/* rawBody */8],
+                    /* encoding */st[/* encoding */9]
+                  ]
                 ],
                 /* [] */0
               ];
@@ -69,50 +76,54 @@ function attempt(route, state) {
   } else {
     switch (route.tag | 0) {
       case 0 : 
-          var match$1 = Chomp$Cause.exact(route[0], state[/* url */0], state[/* offset */1], state[/* length */2]);
+          var match$1 = Chomp$Cause.exact(route[0], st[/* url */0], st[/* offset */1], st[/* length */2]);
           var newOffset$1 = match$1[0];
           if (newOffset$1 === -1) {
             return /* [] */0;
           } else {
             return /* :: */[
-                    /* record */[
-                      /* url */state[/* url */0],
-                      /* offset */newOffset$1,
-                      /* length */match$1[1],
-                      /* arguments */state[/* arguments */3],
-                      /* queries */state[/* queries */4],
-                      /* contentType */state[/* contentType */5],
-                      /* headers */state[/* headers */6],
-                      /* accept */state[/* accept */7],
-                      /* method */state[/* method */8],
-                      /* rawBody */state[/* rawBody */9],
-                      /* encoding */state[/* encoding */10]
+                    /* tuple */[
+                      arg,
+                      /* record */[
+                        /* url */st[/* url */0],
+                        /* offset */newOffset$1,
+                        /* length */match$1[1],
+                        /* queries */st[/* queries */3],
+                        /* contentType */st[/* contentType */4],
+                        /* headers */st[/* headers */5],
+                        /* accept */st[/* accept */6],
+                        /* method */st[/* method */7],
+                        /* rawBody */st[/* rawBody */8],
+                        /* encoding */st[/* encoding */9]
+                      ]
                     ],
                     /* [] */0
                   ];
           }
       case 1 : 
-          var match$2 = Chomp$Cause.segment(state[/* url */0], state[/* offset */1], state[/* length */2]);
+          var match$2 = Chomp$Cause.segment(st[/* url */0], st[/* offset */1], st[/* length */2]);
           var endOffset = match$2[0];
-          if (endOffset === state[/* offset */1]) {
+          if (endOffset === st[/* offset */1]) {
             return /* [] */0;
           } else {
-            var subString = $$String.sub(state[/* url */0], state[/* offset */1], endOffset - state[/* offset */1] | 0);
+            var subString = $$String.sub(st[/* url */0], st[/* offset */1], endOffset - st[/* offset */1] | 0);
             var match$3 = Curry._1(route[0], subString);
             if (match$3 !== undefined) {
               return /* :: */[
-                      /* record */[
-                        /* url */state[/* url */0],
-                        /* offset */match$2[1],
-                        /* length */match$2[2],
-                        /* arguments */Curry._1(state[/* arguments */3], Caml_option.valFromOption(match$3)),
-                        /* queries */state[/* queries */4],
-                        /* contentType */state[/* contentType */5],
-                        /* headers */state[/* headers */6],
-                        /* accept */state[/* accept */7],
-                        /* method */state[/* method */8],
-                        /* rawBody */state[/* rawBody */9],
-                        /* encoding */state[/* encoding */10]
+                      /* tuple */[
+                        Curry._1(arg, Caml_option.valFromOption(match$3)),
+                        /* record */[
+                          /* url */st[/* url */0],
+                          /* offset */match$2[1],
+                          /* length */match$2[2],
+                          /* queries */st[/* queries */3],
+                          /* contentType */st[/* contentType */4],
+                          /* headers */st[/* headers */5],
+                          /* accept */st[/* accept */6],
+                          /* method */st[/* method */7],
+                          /* rawBody */st[/* rawBody */8],
+                          /* encoding */st[/* encoding */9]
+                        ]
                       ],
                       /* [] */0
                     ];
@@ -128,26 +139,25 @@ function attempt(route, state) {
           };
           return List.concat(List.map(f, l));
       case 3 : 
-          var partial_arg = state[/* arguments */3];
           return List.map((function (param) {
-                        return mapHelp(partial_arg, param);
-                      }), attempt(route[1], /* record */[
-                          /* url */state[/* url */0],
-                          /* offset */state[/* offset */1],
-                          /* length */state[/* length */2],
-                          /* arguments */route[0],
-                          /* queries */state[/* queries */4],
-                          /* contentType */state[/* contentType */5],
-                          /* headers */state[/* headers */6],
-                          /* accept */state[/* accept */7],
-                          /* method */state[/* method */8],
-                          /* rawBody */state[/* rawBody */9],
-                          /* encoding */state[/* encoding */10]
+                        return mapHelp(arg, param);
+                      }), attempt(route[1], /* tuple */[
+                          route[0],
+                          st
                         ]));
       case 4 : 
           return List.concat(List.map((function (p) {
                             return attempt(p, state);
                           }), route[0]));
+      case 5 : 
+          if (st[/* method */7] === route[0]) {
+            return /* :: */[
+                    state,
+                    /* [] */0
+                  ];
+          } else {
+            return /* [] */0;
+          }
       
     }
   }
@@ -176,7 +186,7 @@ function oneOf(l) {
   return /* OneOf */Block.__(4, [l]);
 }
 
-function $great$neg(a, b) {
+function $neg$slash$neg(a, b) {
   return /* Slash */Block.__(2, [
             a,
             b
@@ -190,13 +200,50 @@ function $eq$eq$great(a, b) {
           ]);
 }
 
+var Method_000 = /* get : Method */Block.__(5, [/* GET */0]);
+
+var Method_001 = /* post : Method */Block.__(5, [/* POST */1]);
+
+var Method_002 = /* delete : Method */Block.__(5, [/* DELETE */4]);
+
+var Method_003 = /* put : Method */Block.__(5, [/* PUT */2]);
+
+var Method_004 = /* update : Method */Block.__(5, [/* UPDATE */3]);
+
+var Method_005 = /* head : Method */Block.__(5, [/* HEAD */5]);
+
+var Method_006 = /* option : Method */Block.__(5, [/* OPTION */6]);
+
+var Method_007 = /* connect : Method */Block.__(5, [/* CONNECT */7]);
+
+var Method_008 = /* trace : Method */Block.__(5, [/* TRACE */8]);
+
+var Method_009 = /* patch : Method */Block.__(5, [/* PATCH */9]);
+
+var Method = /* module */[
+  Method_000,
+  Method_001,
+  Method_002,
+  Method_003,
+  Method_004,
+  Method_005,
+  Method_006,
+  Method_007,
+  Method_008,
+  Method_009
+];
+
 function parseHelp(_results) {
   while(true) {
     var results = _results;
     if (results) {
-      var state = results[0];
-      if (state[/* length */2] === 0) {
-        return state;
+      var match = results[0];
+      var st = match[1];
+      if (st[/* length */2] === 0) {
+        return /* tuple */[
+                match[0],
+                st
+              ];
       } else {
         _results = results[1];
         continue ;
@@ -209,52 +256,60 @@ function parseHelp(_results) {
 
 function parse(route, req) {
   var firstDropped = $$String.sub(req[/* url */0], 1, req[/* url */0].length - 1 | 0);
-  return Result$Cause.attempt("Not found", /* NotFound404 */19, /* Plain */2, (function (v) {
-                return parseHelp(attempt(route, /* record */[
-                                /* url */firstDropped,
-                                /* offset */v[/* offset */1],
-                                /* length */v[/* length */2] - 1 | 0,
-                                /* arguments */v[/* arguments */3],
-                                /* queries */v[/* queries */4],
-                                /* contentType */v[/* contentType */5],
-                                /* headers */v[/* headers */6],
-                                /* accept */v[/* accept */7],
-                                /* method */v[/* method */8],
-                                /* rawBody */v[/* rawBody */9],
-                                /* encoding */v[/* encoding */10]
+  return Result$Cause.attempt("Not found", /* NotFound404 */19, /* Plain */2, (function (param) {
+                var r = param[1];
+                return parseHelp(attempt(route, /* tuple */[
+                                param[0],
+                                /* record */[
+                                  /* url */firstDropped,
+                                  /* offset */r[/* offset */1],
+                                  /* length */r[/* length */2] - 1 | 0,
+                                  /* queries */r[/* queries */3],
+                                  /* contentType */r[/* contentType */4],
+                                  /* headers */r[/* headers */5],
+                                  /* accept */r[/* accept */6],
+                                  /* method */r[/* method */7],
+                                  /* rawBody */r[/* rawBody */8],
+                                  /* encoding */r[/* encoding */9]
+                                ]
                               ]));
-              }), req);
+              }), /* tuple */[
+              id,
+              req
+            ]);
 }
 
-function id(x) {
+function id$1(x) {
   return x;
 }
 
 function primitiveParse(router, uri) {
   var firstDropped = $$String.sub(uri, 1, uri.length - 1 | 0);
   var request = Request$Cause.mockGet(uri);
-  var result = parseHelp(attempt(router, /* record */[
-            /* url */firstDropped,
-            /* offset */request[/* offset */1],
-            /* length */uri.length - 1 | 0,
-            /* arguments */request[/* arguments */3],
-            /* queries */request[/* queries */4],
-            /* contentType */request[/* contentType */5],
-            /* headers */request[/* headers */6],
-            /* accept */request[/* accept */7],
-            /* method */request[/* method */8],
-            /* rawBody */request[/* rawBody */9],
-            /* encoding */request[/* encoding */10]
+  var result = parseHelp(attempt(router, /* tuple */[
+            id$1,
+            /* record */[
+              /* url */firstDropped,
+              /* offset */request[/* offset */1],
+              /* length */uri.length - 1 | 0,
+              /* queries */request[/* queries */3],
+              /* contentType */request[/* contentType */4],
+              /* headers */request[/* headers */5],
+              /* accept */request[/* accept */6],
+              /* method */request[/* method */7],
+              /* rawBody */request[/* rawBody */8],
+              /* encoding */request[/* encoding */9]
+            ]
           ]));
-  return Belt_Option.map(result, (function (req) {
-                return req[/* arguments */3];
-              }));
+  return Belt_Option.map(result, first);
 }
 
 var top = /* Top */0;
 
 var $$int = /* Integer */1;
 
+exports.first = first;
+exports.second = second;
 exports.concatMap = concatMap;
 exports.mapHelp = mapHelp;
 exports.attempt = attempt;
@@ -265,10 +320,11 @@ exports.text = text;
 exports.custom = custom;
 exports.map = map;
 exports.oneOf = oneOf;
-exports.$great$neg = $great$neg;
+exports.$neg$slash$neg = $neg$slash$neg;
 exports.$eq$eq$great = $eq$eq$great;
+exports.Method = Method;
 exports.parseHelp = parseHelp;
 exports.parse = parse;
-exports.id = id;
+exports.id = id$1;
 exports.primitiveParse = primitiveParse;
 /* Request-Cause Not a pure module */

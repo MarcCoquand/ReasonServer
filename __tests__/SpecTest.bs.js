@@ -3,7 +3,9 @@
 
 var List = require("bs-platform/lib/js/list.js");
 var Block = require("bs-platform/lib/js/block.js");
+var Curry = require("bs-platform/lib/js/curry.js");
 var Belt_Int = require("bs-platform/lib/js/belt_Int.js");
+var Uri$Cause = require("../src/Uri.bs.js");
 var Spec$Cause = require("../src/Spec.bs.js");
 var Belt_Option = require("bs-platform/lib/js/belt_Option.js");
 var Json_decode = require("@glennsl/bs-json/src/Json_decode.bs.js");
@@ -41,7 +43,11 @@ function json(myBook) {
             ]);
 }
 
-function plain(books) {
+function plain(book) {
+  return book[/* title */0];
+}
+
+function plainList(books) {
   return List.fold_right((function (book, str) {
                 return str + book[/* title */0];
               }), books, "");
@@ -49,7 +55,8 @@ function plain(books) {
 
 var Encoders = /* module */[
   /* json */json,
-  /* plain */plain
+  /* plain */plain,
+  /* plainList */plainList
 ];
 
 function json$1(json$2) {
@@ -63,7 +70,7 @@ function json$1(json$2) {
 
 var Decoders = /* module */[/* json */json$1];
 
-function mockGetById(books, year, author) {
+function mockFromList(books, year, author) {
   return /* Ok */Block.__(0, [List.map((function (book) {
                     return /* record */[
                             /* title */book[/* title */0],
@@ -74,50 +81,121 @@ function mockGetById(books, year, author) {
                   }), books)]);
 }
 
-function get(fetchBookList) {
-  return Spec$Cause.handle(/* Ok200 */0, fetchBookList, Spec$Cause.$pipe$colon(Spec$Cause.$pipe$colon(Spec$Cause.accept(/* :: */[
-                          Spec$Cause.Contenttype[/* json */1]((function (param) {
-                                  return Json_encode.list(json, param);
-                                })),
-                          /* :: */[
-                            Spec$Cause.Contenttype[/* plain */0](plain),
-                            /* [] */0
-                          ]
-                        ]), Spec$Cause.query("year", Belt_Int.fromString)), Spec$Cause.query("author", (function (s) {
-                        return s;
-                      }))));
+var partial_arg = /* :: */[
+  /* record */[
+    /* title */"Harry",
+    /* author */"Jk",
+    /* year */1995,
+    /* id */5
+  ],
+  /* [] */0
+];
+
+function asList(param, param$1) {
+  return mockFromList(partial_arg, param, param$1);
 }
 
-var Api = /* module */[/* get */get];
+function mockById(id) {
+  return /* Ok */Block.__(0, [/* record */[
+              /* title */"Harry",
+              /* author */"Jk",
+              /* year */1995,
+              /* id */id
+            ]]);
+}
+
+function insert(book) {
+  return /* Ok */Block.__(0, ["Added to database"]);
+}
+
+function fromQuery(asList) {
+  var eta = Spec$Cause.query("author", (function (s) {
+          return s;
+        }), Spec$Cause.query("year", Belt_Int.fromString, Spec$Cause.accept(/* :: */[
+                Spec$Cause.Contenttype[/* json */1]((function (param) {
+                        return Json_encode.list(json, param);
+                      })),
+                /* :: */[
+                  Spec$Cause.Contenttype[/* plain */0](plainList),
+                  /* [] */0
+                ]
+              ], Spec$Cause.endpoint(asList))));
+  return Spec$Cause.success(undefined, eta);
+}
+
+function fromSpecific(specific, id) {
+  var eta = Spec$Cause.accept(/* :: */[
+        Spec$Cause.Contenttype[/* json */1](json),
+        /* :: */[
+          Spec$Cause.Contenttype[/* plain */0](plain),
+          /* [] */0
+        ]
+      ], Spec$Cause.endpoint(Curry._1(specific, id)));
+  return Spec$Cause.success(undefined, eta);
+}
+
+function create(addToDatabase) {
+  return Spec$Cause.success(/* Created201 */1, Spec$Cause.contentType(/* :: */[
+                  Spec$Cause.Accept[/* json */0](json$1),
+                  /* [] */0
+                ], Spec$Cause.accept(/* :: */[
+                      Spec$Cause.Contenttype[/* json */1]((function (s) {
+                              return Json_encode.object_(/* :: */[
+                                          /* tuple */[
+                                            "message",
+                                            s
+                                          ],
+                                          /* [] */0
+                                        ]);
+                            })),
+                      /* :: */[
+                        Spec$Cause.Contenttype[/* plain */0](id),
+                        /* [] */0
+                      ]
+                    ], Spec$Cause.endpoint(addToDatabase))));
+}
+
+var router = Uri$Cause.oneOf(/* :: */[
+      Uri$Cause.$neg$slash$neg(Uri$Cause.Method[/* get */0], Uri$Cause.oneOf(/* :: */[
+                Uri$Cause.$eq$eq$great(Uri$Cause.$$int, (function (param) {
+                        return fromSpecific(mockById, param);
+                      })),
+                /* :: */[
+                  Uri$Cause.$eq$eq$great(Uri$Cause.Method[/* get */0], fromQuery(asList)),
+                  /* [] */0
+                ]
+              ])),
+      /* :: */[
+        Uri$Cause.$eq$eq$great(Uri$Cause.Method[/* post */1], create(insert)),
+        /* [] */0
+      ]
+    ]);
+
+var Api = /* module */[
+  /* fromQuery */fromQuery,
+  /* fromSpecific */fromSpecific,
+  /* create */create,
+  /* router */router
+];
 
 var Book = /* module */[
   /* Encoders */Encoders,
   /* Decoders */Decoders,
-  /* mockGetById */mockGetById,
+  /* mockFromList */mockFromList,
+  /* asList */asList,
+  /* mockById */mockById,
+  /* insert */insert,
   /* Api */Api
 ];
 
-function echoInt(b, c) {
-  return /* Ok */Block.__(0, [String(Belt_Option.getWithDefault(b, 0))]);
-}
+var router$1 = Uri$Cause.oneOf(/* :: */[
+      Uri$Cause.$neg$slash$neg(Uri$Cause.is("book"), router),
+      /* [] */0
+    ]);
 
-var writeHi = Spec$Cause.handle(/* Partial206 */6, /* Ok */Block.__(0, ["Hello"]), Spec$Cause.accept(/* :: */[
-          Spec$Cause.Contenttype[/* plain */0]((function (s) {
-                  return s;
-                })),
-          /* :: */[
-            Spec$Cause.Contenttype[/* json */1]((function (prim) {
-                    return prim;
-                  })),
-            /* [] */0
-          ]
-        ]));
-
-var echoIntRoute = Spec$Cause.handle(/* Ok200 */0, echoInt, Spec$Cause.$pipe$colon(Spec$Cause.query("world", Belt_Int.fromString), Spec$Cause.query("worl", Belt_Int.fromString)));
+var Server = /* module */[/* router */router$1];
 
 exports.id = id;
 exports.Book = Book;
-exports.echoInt = echoInt;
-exports.writeHi = writeHi;
-exports.echoIntRoute = echoIntRoute;
-/* writeHi Not a pure module */
+exports.Server = Server;
+/* router Not a pure module */

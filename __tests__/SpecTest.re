@@ -1,11 +1,9 @@
 open Jest;
-open Spec;
-open Uri;
 
 let id: type a. a => a = x => x;
 
 module Book = {
-  type book = {
+  type t = {
     title: string,
     author: string,
     year: int,
@@ -24,8 +22,9 @@ module Book = {
         ])
       );
     };
-    let plain = books =>
-      List.fold_right((book, str) => str ++ book.title, books, "");
+    let plain = book => book.title;
+    let plainList = books =>
+      List.fold_right((book, str) => str ++ plain(book), books, "");
   };
   module Decoders = {
     let json = json => {
@@ -39,9 +38,9 @@ module Book = {
     };
   };
 
-  let mockGetById =
-      (books: list(book), year: option(int), author: option(string))
-      : Result.t(list(book)) =>
+  let mockFromList =
+      (books: list(t), year: option(int), author: option(string))
+      : Result.t(list(t)) =>
     // Do some api fetching
     Result.Ok(
       List.map(
@@ -55,31 +54,62 @@ module Book = {
       ),
     );
 
+  let asList =
+    mockFromList([{title: "Harry", author: "Jk", year: 1995, id: 5}]);
+
+  let mockById = (id: int): Result.t(t) =>
+    Result.Ok({title: "Harry", author: "Jk", year: 1995, id});
+
+  let insert = (book: t): Result.t(string) =>
+    // Add to database
+    Result.Ok("Added to database");
+
   module Api = {
-    open Spec;
-    let get = fetchBookList =>
-      accept([
-        Contenttype.json(Json.Encode.list(Encoders.json)),
-        Contenttype.plain(Encoders.plain),
-      ])
-      |: query("year", Belt.Int.fromString)
-      |: query("author", s => Some(s))
-      |> handle(Status.Ok200, fetchBookList);
+    let fromQuery = asList =>
+      Spec.endpoint(~handler=asList)
+      |> Spec.accept([
+           Spec.Contenttype.json(Json.Encode.list(Encoders.json)),
+           Spec.Contenttype.plain(Encoders.plainList),
+         ])
+      |> Spec.query("year", Belt.Int.fromString)
+      |> Spec.query("author", s => Some(s))
+      |> Spec.success;
+
+    let fromSpecific = (specific, id) =>
+      Spec.endpoint(~handler=specific(id))
+      |> Spec.accept([
+           Spec.Contenttype.json(Encoders.json),
+           Spec.Contenttype.plain(Encoders.plain),
+         ])
+      |> Spec.success;
+
+    let create = addToDatabase =>
+      Spec.endpoint(~handler=addToDatabase)
+      |> Spec.accept([
+           Spec.Contenttype.json(s =>
+             Json.Encode.object_([("message", Json.Encode.string(s))])
+           ),
+           Spec.Contenttype.plain(id),
+         ])
+      |> Spec.contentType([Spec.Accept.json(Decoders.json)])
+      |> Spec.success(~code=Status.Created201);
+    open Uri;
+    let router: Uri.t(Spec.endpoint => Spec.endpoint, Spec.endpoint) =
+      oneOf([
+        Method.get
+        -/- oneOf([
+              int ==> fromSpecific(mockById),
+              Method.get ==> fromQuery(asList),
+            ]),
+        Method.post ==> create(insert),
+      ]);
   };
 };
-let echoInt = (b: option(int), c: option(int)) =>
-  Result.Ok(Belt.Int.toString(Belt.Option.getWithDefault(b, 0)));
 
-let writeHi = Result.Ok("Hello");
+//... Later on
+module Server = {
+  open Uri;
 
-let writeHi =
-  accept([
-    Contenttype.plain((s: string) => s),
-    Contenttype.json(Json.Encode.string),
-  ])
-  |> handle(Status.Partial206, writeHi);
-
-let echoIntRoute =
-  query("world", Belt.Int.fromString)
-  |: query("worl", Belt.Int.fromString)
-  |> handle(Status.Ok200, echoInt);
+  //Extend with more afterwards, like is("user") -/- User.spec
+  let router = oneOf([is("book") -/- Book.Api.router]);
+};

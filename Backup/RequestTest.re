@@ -30,8 +30,7 @@ describe("Parse query parameter", () => {
   let twoQuery =
     mockGet("?hello=hi&world=bye")
     |> map(_ => handleTwo)
-    |> query("hello", Optional.string)
-    |> query("world", Optional.string);
+    |> query("hello", Optional.string);
 
   Expect.(
     test("query", () =>

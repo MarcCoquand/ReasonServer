@@ -2,6 +2,7 @@
 'use strict';
 
 var Json = require("@glennsl/bs-json/src/Json.bs.js");
+var Block = require("bs-platform/lib/js/block.js");
 var Curry = require("bs-platform/lib/js/curry.js");
 var Header$Cause = require("./Header.bs.js");
 
@@ -17,9 +18,7 @@ function error($staropt$star, $staropt$star$1, $staropt$star$2) {
           /* code */code,
           /* headers */Header$Cause.$$Map[/* empty */0],
           /* contentType */method_,
-          /* body */(function (param) {
-              return message;
-            }),
+          /* body */message,
           /* encoding : Ascii */0
         ];
 }
@@ -57,11 +56,15 @@ function encode(value, response) {
         ];
 }
 
-function fromResult(maybeResponse) {
-  if (maybeResponse.tag) {
-    return error(maybeResponse[0], maybeResponse[1], /* Html */0);
+function encodeResult(result, response) {
+  if (result.tag) {
+    return /* Failed */Block.__(1, [
+              result[0],
+              result[1],
+              result[2]
+            ]);
   } else {
-    return maybeResponse[0];
+    return /* Ok */Block.__(0, [encode(result[0], response)]);
   }
 }
 
@@ -110,7 +113,7 @@ exports.error = error;
 exports.map = map;
 exports.contramap = contramap;
 exports.encode = encode;
-exports.fromResult = fromResult;
+exports.encodeResult = encodeResult;
 exports.id = id;
 exports.lift = lift;
 exports.setCode = setCode;

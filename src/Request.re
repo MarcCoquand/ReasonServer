@@ -10,14 +10,11 @@ type contenttype('a) =
   Belt.Map.t(MediaType.t, 'a => string, MediaComparer.t);
 
 let id: type a. a => a = x => x;
-type nohandler =
-  | NoHandler;
 
-type t('a) = {
+type t = {
   url: string,
   offset: int,
   length: int,
-  arguments: 'a,
   queries: option(querySet),
   contentType: MediaType.t,
   headers: Header.Map.t(string),
@@ -52,36 +49,31 @@ let rec queries = (url, offset, length, set): querySet => {
     };
   };
 };
-let map: type a b. (a => b, t(a)) => t(b) =
-  (f, content) => {...content, arguments: f(content.arguments)};
 
 let compose = (f, g, x) => f(g(x));
 
-let pure = (value, request: t(nohandler)) => {...request, arguments: value};
-
-let extractResult = (request: t(Result.t('a))) => request.arguments;
-
-let apply: type a b. (a, t(a => b)) => t(b) =
-  (value, request) => {...request, arguments: request.arguments(value)};
-
-let applyCombine: type a b. (t(a => b), t(a)) => t(b) =
-  (request, value) => {
-    ...value,
-    arguments: request.arguments(value.arguments),
-  };
-
-let compose = (f, x) => f(x);
-
 //------------------------------------------------------------------------------
 // PARSING
-let decodeBody: type a b. (accepts(a), t(a => b)) => option(t(b)) =
+let decodeBody: type a. (accepts(a), t) => option(a) =
   (accepts, request) =>
     Belt.Map.get(accepts, request.contentType)
-    ->Belt.Option.flatMap(_, decoder => decoder(request.rawBody))
-    ->Belt.Option.map(_, decodedBody => apply(decodedBody, request));
+    ->Belt.Option.flatMap(_, decoder => decoder(request.rawBody));
 
-let query:
-  type a b. (string, string => option(a), t(option(a) => b)) => t(b) =
+let parseQueries = req => {
+  Belt.Option.isSome(req.queries)
+    ? req
+    : {
+      ...req,
+      url: "",
+      length: 0,
+      queries:
+        Some(
+          queries(req.url, req.offset, req.length, Belt.Map.String.empty),
+        ),
+    };
+};
+
+let query: type a. (string, string => option(a), t) => option(a) =
   (str, parse, req) => {
     let queries =
       Belt.Option.getWithDefault(
@@ -90,20 +82,8 @@ let query:
       );
 
     switch (Belt.Map.String.get(queries, str)) {
-    | Some(unparsed) => {
-        ...req,
-        url: "",
-        length: 0,
-        arguments: compose(req.arguments, parse(unparsed)),
-        queries: Some(queries),
-      }
-    | None => {
-        ...req,
-        url: "",
-        length: 0,
-        queries: Some(queries),
-        arguments: compose(req.arguments, None),
-      }
+    | Some(unparsed) => parse(unparsed)
+    | None => None
     };
   };
 
@@ -116,7 +96,6 @@ let mock = (uri, body, method) => {
   url: uri,
   offset: 0,
   length: String.length(uri),
-  arguments: id,
   queries: None,
   contentType: MediaType.Plain,
   headers: Header.Map.empty,
@@ -130,7 +109,6 @@ let mockPost = (uri, body) => {
   url: uri,
   offset: 0,
   length: String.length(uri),
-  arguments: NoHandler,
   queries: None,
   contentType: MediaType.Plain,
   headers: Header.Map.empty,
@@ -144,7 +122,6 @@ let mockGet = uri => {
   url: uri,
   offset: 0,
   length: String.length(uri),
-  arguments: id,
   queries: None,
   contentType: MediaType.Plain,
   headers: Header.Map.empty,

@@ -3,10 +3,8 @@
 
 var Json = require("@glennsl/bs-json/src/Json.bs.js");
 var $$Array = require("bs-platform/lib/js/array.js");
-var Block = require("bs-platform/lib/js/block.js");
 var Curry = require("bs-platform/lib/js/curry.js");
 var Belt_Map = require("bs-platform/lib/js/belt_Map.js");
-var Uri$Cause = require("./Uri.bs.js");
 var Belt_Option = require("bs-platform/lib/js/belt_Option.js");
 var Caml_option = require("bs-platform/lib/js/caml_option.js");
 var Json_decode = require("@glennsl/bs-json/src/Json_decode.bs.js");
@@ -72,62 +70,61 @@ var Contenttype = /* module */[
   /* json */json$1
 ];
 
-function accept(contentTypes) {
+function accept(contentTypes, builder) {
   var makeEncoder = function (req) {
     var partial_arg = Belt_Map.fromArray($$Array.of_list(contentTypes), Request$Cause.MediaComparer);
-    return Result$Cause.attempt("Unsupported Media Type: " + MediaType$Cause.toString(req[/* accept */7]), /* UnsupportedMediaType415 */30, /* Html */0, (function (param) {
+    return Result$Cause.attempt("Unsupported Media Type: " + MediaType$Cause.toString(req[/* accept */6]), /* UnsupportedMediaType415 */30, /* Plain */2, (function (param) {
                   return Belt_Map.get(partial_arg, param);
-                }), req[/* accept */7]);
+                }), req[/* accept */6]);
   };
-  return Result$Cause.andThen(Result$Cause.merge(Result$Cause.runFailsafe((function (param, response) {
+  return Result$Cause.andThen(Result$Cause.merge(Result$Cause.runFailsafe((function (encoder, param) {
                         return /* tuple */[
-                                param[1],
-                                Response$Cause.contramap(param[0], response)
+                                param[0],
+                                Response$Cause.contramap(encoder, param[1])
                               ];
-                      }))), Result$Cause.first(Result$Cause.run((function (req) {
-                        return Result$Cause.$great$great$eq(makeEncoder(req), (function (encoder) {
-                                      return /* Ok */Block.__(0, [/* tuple */[
-                                                  encoder,
-                                                  req
-                                                ]]);
-                                    }));
-                      }))));
+                      }))), Result$Cause.branch(Result$Cause.run(makeEncoder), builder));
 }
 
-function query(parameter, parser) {
-  return Result$Cause.first(Result$Cause.runFailsafe((function (param) {
-                    return Request$Cause.query(parameter, parser, param);
-                  })));
+function query(parameter, parser, builder) {
+  return Result$Cause.andThen(Result$Cause.merge(Result$Cause.runFailsafe((function (arg, param) {
+                        return /* tuple */[
+                                Curry._1(param[0], arg),
+                                param[1]
+                              ];
+                      }))), Result$Cause.branch(Result$Cause.runFailsafe((function (param) {
+                        return Request$Cause.query(parameter, parser, param);
+                      })), Result$Cause.lmap(Request$Cause.parseQueries, builder)));
 }
 
-function contentType(errorContent, contentTypes) {
+function contentType(contentTypes, builder) {
   var acceptsMap = Belt_Map.fromArray($$Array.of_list(contentTypes), Request$Cause.MediaComparer);
   var decodeBody = function (req) {
-    return Result$Cause.attempt("Could not parse body with content type: " + MediaType$Cause.toString(req[/* contentType */5]), /* BadRequest400 */15, errorContent, (function (param) {
+    return Result$Cause.attempt("Could not parse body with content type: " + MediaType$Cause.toString(req[/* contentType */4]), /* BadRequest400 */15, /* Plain */2, (function (param) {
                   return Request$Cause.decodeBody(acceptsMap, param);
                 }), req);
   };
-  return Result$Cause.first(Result$Cause.run(decodeBody));
+  return Result$Cause.andThen(Result$Cause.merge(Result$Cause.runFailsafe((function (arg, param) {
+                        return /* tuple */[
+                                Curry._1(param[0], arg),
+                                param[1]
+                              ];
+                      }))), Result$Cause.branch(Result$Cause.run(decodeBody), builder));
 }
 
-function route(router) {
-  return Result$Cause.first(Result$Cause.run((function (param) {
-                    return Uri$Cause.parse(router, param);
-                  })));
-}
-
-function handle(code, handler, builder) {
-  var b = Result$Cause.merge(Result$Cause.runFailsafe(Response$Cause.encode));
-  var b$1 = Result$Cause.first(Result$Cause.run(Request$Cause.extractResult));
-  var a = Result$Cause.andThen(b$1, builder);
-  return Result$Cause.dimap((function (request) {
+function endpoint(handler) {
+  return Result$Cause.runFailsafe((function (request) {
                 return /* tuple */[
-                        Request$Cause.pure(handler, request),
+                        handler,
                         Response$Cause.lift
                       ];
-              }), (function (param) {
+              }));
+}
+
+function success($staropt$star, builder) {
+  var code = $staropt$star !== undefined ? $staropt$star : /* Ok200 */0;
+  return Result$Cause.rmap((function (param) {
                 return Response$Cause.setCode(code, param);
-              }), Result$Cause.andThen(b, a));
+              }), Result$Cause.andThen(Result$Cause.run(id), Result$Cause.andThen(Result$Cause.merge(Result$Cause.runFailsafe(Response$Cause.encodeResult)), builder)));
 }
 
 exports.id = id;
@@ -138,6 +135,6 @@ exports.Contenttype = Contenttype;
 exports.accept = accept;
 exports.query = query;
 exports.contentType = contentType;
-exports.route = route;
-exports.handle = handle;
-/* Uri-Cause Not a pure module */
+exports.endpoint = endpoint;
+exports.success = success;
+/* Request-Cause Not a pure module */

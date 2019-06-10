@@ -17,11 +17,11 @@ let error =
       ~code=Status.Error500,
       ~method=MediaType.Html,
     )
-    : t('a) => {
+    : content(string) => {
   code,
   headers: Header.Map.empty,
   contentType: method,
-  body: _ => message,
+  body: message,
   encoding: Encoding.Ascii,
 };
 
@@ -34,14 +34,15 @@ let contramap: type a b. (a => b, t(b)) => t(a) =
 let encode: type a. (a, t(a)) => content(string) =
   (value, response) => {...response, body: response.body(value)};
 
-let fromResult = (maybeResponse: Result.t(t('a))) =>
-  switch (maybeResponse) {
-  | Ok(response) => response
-  | Failed(m, c, t) => error(~message=m, ~code=c, ~method=MediaType.Html)
+let encodeResult =
+    (result: Result.t('a), response: t('a)): Result.t(content(string)) =>
+  switch (result) {
+  | Ok(value) => Result.Ok(encode(value, response))
+  | Failed(m, c, t) => Result.Failed(m, c, t)
   };
 let id: type a. a => a = x => x;
 
-let lift = {
+let lift: t(string) = {
   code: Status.Ok200,
   headers: Header.Map.empty,
   contentType: MediaType.Plain,

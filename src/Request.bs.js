@@ -47,120 +47,44 @@ function queries(url, _offset, _length, _set) {
   };
 }
 
-function map(f, content) {
-  return /* record */[
-          /* url */content[/* url */0],
-          /* offset */content[/* offset */1],
-          /* length */content[/* length */2],
-          /* arguments */Curry._1(f, content[/* arguments */3]),
-          /* queries */content[/* queries */4],
-          /* contentType */content[/* contentType */5],
-          /* headers */content[/* headers */6],
-          /* accept */content[/* accept */7],
-          /* method */content[/* method */8],
-          /* rawBody */content[/* rawBody */9],
-          /* encoding */content[/* encoding */10]
-        ];
-}
-
-function pure(value, request) {
-  return /* record */[
-          /* url */request[/* url */0],
-          /* offset */request[/* offset */1],
-          /* length */request[/* length */2],
-          /* arguments */value,
-          /* queries */request[/* queries */4],
-          /* contentType */request[/* contentType */5],
-          /* headers */request[/* headers */6],
-          /* accept */request[/* accept */7],
-          /* method */request[/* method */8],
-          /* rawBody */request[/* rawBody */9],
-          /* encoding */request[/* encoding */10]
-        ];
-}
-
-function extractResult(request) {
-  return request[/* arguments */3];
-}
-
-function apply(value, request) {
-  return /* record */[
-          /* url */request[/* url */0],
-          /* offset */request[/* offset */1],
-          /* length */request[/* length */2],
-          /* arguments */Curry._1(request[/* arguments */3], value),
-          /* queries */request[/* queries */4],
-          /* contentType */request[/* contentType */5],
-          /* headers */request[/* headers */6],
-          /* accept */request[/* accept */7],
-          /* method */request[/* method */8],
-          /* rawBody */request[/* rawBody */9],
-          /* encoding */request[/* encoding */10]
-        ];
-}
-
-function applyCombine(request, value) {
-  return /* record */[
-          /* url */value[/* url */0],
-          /* offset */value[/* offset */1],
-          /* length */value[/* length */2],
-          /* arguments */Curry._1(request[/* arguments */3], value[/* arguments */3]),
-          /* queries */value[/* queries */4],
-          /* contentType */value[/* contentType */5],
-          /* headers */value[/* headers */6],
-          /* accept */value[/* accept */7],
-          /* method */value[/* method */8],
-          /* rawBody */value[/* rawBody */9],
-          /* encoding */value[/* encoding */10]
-        ];
-}
-
-function compose(f, x) {
-  return Curry._1(f, x);
+function compose(f, g, x) {
+  return Curry._1(f, Curry._1(g, x));
 }
 
 function decodeBody(accepts, request) {
-  var __x = Belt_Map.get(accepts, request[/* contentType */5]);
-  var __x$1 = Belt_Option.flatMap(__x, (function (decoder) {
-          return Curry._1(decoder, request[/* rawBody */9]);
-        }));
-  return Belt_Option.map(__x$1, (function (decodedBody) {
-                return apply(decodedBody, request);
+  var __x = Belt_Map.get(accepts, request[/* contentType */4]);
+  return Belt_Option.flatMap(__x, (function (decoder) {
+                return Curry._1(decoder, request[/* rawBody */8]);
               }));
 }
 
-function query(str, parse, req) {
-  var queries$1 = Belt_Option.getWithDefault(req[/* queries */4], queries(req[/* url */0], req[/* offset */1], req[/* length */2], Belt_MapString.empty));
-  var match = Belt_MapString.get(queries$1, str);
-  if (match !== undefined) {
-    return /* record */[
-            /* url */"",
-            /* offset */req[/* offset */1],
-            /* length */0,
-            /* arguments */Curry._1(req[/* arguments */3], Curry._1(parse, match)),
-            /* queries */Caml_option.some(queries$1),
-            /* contentType */req[/* contentType */5],
-            /* headers */req[/* headers */6],
-            /* accept */req[/* accept */7],
-            /* method */req[/* method */8],
-            /* rawBody */req[/* rawBody */9],
-            /* encoding */req[/* encoding */10]
-          ];
+function parseQueries(req) {
+  var match = Belt_Option.isSome(req[/* queries */3]);
+  if (match) {
+    return req;
   } else {
     return /* record */[
             /* url */"",
             /* offset */req[/* offset */1],
             /* length */0,
-            /* arguments */Curry._1(req[/* arguments */3], undefined),
-            /* queries */Caml_option.some(queries$1),
-            /* contentType */req[/* contentType */5],
-            /* headers */req[/* headers */6],
-            /* accept */req[/* accept */7],
-            /* method */req[/* method */8],
-            /* rawBody */req[/* rawBody */9],
-            /* encoding */req[/* encoding */10]
+            /* queries */Caml_option.some(queries(req[/* url */0], req[/* offset */1], req[/* length */2], Belt_MapString.empty)),
+            /* contentType */req[/* contentType */4],
+            /* headers */req[/* headers */5],
+            /* accept */req[/* accept */6],
+            /* method */req[/* method */7],
+            /* rawBody */req[/* rawBody */8],
+            /* encoding */req[/* encoding */9]
           ];
   }
+}
+
+function query(str, parse, req) {
+  var queries$1 = Belt_Option.getWithDefault(req[/* queries */3], queries(req[/* url */0], req[/* offset */1], req[/* length */2], Belt_MapString.empty));
+  var match = Belt_MapString.get(queries$1, str);
+  if (match !== undefined) {
+    return Curry._1(parse, match);
+  }
+  
 }
 
 function string(s) {
@@ -177,7 +101,6 @@ function mock(uri, body, method_) {
           /* url */uri,
           /* offset */0,
           /* length */uri.length,
-          /* arguments */id,
           /* queries */undefined,
           /* contentType : Plain */2,
           /* headers */Header$Cause.$$Map[/* empty */0],
@@ -193,7 +116,6 @@ function mockPost(uri, body) {
           /* url */uri,
           /* offset */0,
           /* length */uri.length,
-          /* arguments : NoHandler */0,
           /* queries */undefined,
           /* contentType : Plain */2,
           /* headers */Header$Cause.$$Map[/* empty */0],
@@ -209,7 +131,6 @@ function mockGet(uri) {
           /* url */uri,
           /* offset */0,
           /* length */uri.length,
-          /* arguments */id,
           /* queries */undefined,
           /* contentType : Plain */2,
           /* headers */Header$Cause.$$Map[/* empty */0],
@@ -223,13 +144,9 @@ function mockGet(uri) {
 exports.MediaComparer = MediaComparer;
 exports.id = id;
 exports.queries = queries;
-exports.map = map;
-exports.pure = pure;
-exports.extractResult = extractResult;
-exports.apply = apply;
-exports.applyCombine = applyCombine;
 exports.compose = compose;
 exports.decodeBody = decodeBody;
+exports.parseQueries = parseQueries;
 exports.query = query;
 exports.Optional = Optional;
 exports.mock = mock;
