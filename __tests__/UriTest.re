@@ -32,7 +32,7 @@ describe("Parses primitives", () => {
     )
   );
 
-  let slashRouter = is("hello") >- is("world") ==> Arrived;
+  let slashRouter = is("hello") ^/ is("world") ==> Arrived;
   Expect.(
     test("slash", () =>
       expect(primitiveParse(slashRouter, "/hello/world"))

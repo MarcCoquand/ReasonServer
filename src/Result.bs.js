@@ -3,10 +3,24 @@
 
 var Block = require("bs-platform/lib/js/block.js");
 var Curry = require("bs-platform/lib/js/curry.js");
+var $$String = require("bs-platform/lib/js/string.js");
 var Caml_option = require("bs-platform/lib/js/caml_option.js");
+var Chomp$Cause = require("./Chomp.bs.js");
 
-function evaluate(computation, value) {
-  return Curry._1(computation[0], value);
+function map(f, t) {
+  if (t.tag) {
+    return /* Failed */Block.__(1, [
+              t[0],
+              t[1],
+              t[2]
+            ]);
+  } else {
+    return /* Ok */Block.__(0, [Curry._1(f, t[0])]);
+  }
+}
+
+function evaluate(f, value) {
+  return Curry._1(f, value);
 }
 
 function $great$eq$great(f, g, x) {
@@ -47,16 +61,15 @@ function toOption(a) {
 }
 
 function dimap(f, g, computation) {
-  var m = computation[0];
-  return /* Run */[(function (param) {
-              return $great$eq$great((function (param) {
-                            return $great$eq$great((function (value) {
-                                          return /* Ok */Block.__(0, [Curry._1(f, value)]);
-                                        }), m, param);
-                          }), (function (result) {
-                            return /* Ok */Block.__(0, [Curry._1(g, result)]);
-                          }), param);
-            })];
+  return (function (param) {
+      return $great$eq$great((function (param) {
+                    return $great$eq$great((function (value) {
+                                  return /* Ok */Block.__(0, [Curry._1(f, value)]);
+                                }), computation, param);
+                  }), (function (result) {
+                    return /* Ok */Block.__(0, [Curry._1(g, result)]);
+                  }), param);
+    });
 }
 
 function id(x) {
@@ -87,65 +100,80 @@ function attempt($staropt$star, $staropt$star$1, $staropt$star$2, f, value) {
   }
 }
 
-function andThen(param, param$1) {
-  var f = param$1[0];
-  var g = param[0];
-  return /* Run */[(function (param) {
-              return $great$eq$great(f, g, param);
-            })];
+function runFailsafe(f, s) {
+  return /* Ok */Block.__(0, [Curry._1(f, s)]);
 }
 
-function run(f) {
-  return /* Run */[f];
+function first(f, param) {
+  var d = param[1];
+  return $great$great$eq(Curry._1(f, param[0]), (function (c) {
+                return /* Ok */Block.__(0, [/* tuple */[
+                            c,
+                            d
+                          ]]);
+              }));
 }
 
-function runFailsafe(f) {
-  return /* Run */[(function (s) {
-              return /* Ok */Block.__(0, [Curry._1(f, s)]);
-            })];
+function second(f, param) {
+  var d = param[0];
+  return $great$great$eq(Curry._1(f, param[1]), (function (c) {
+                return /* Ok */Block.__(0, [/* tuple */[
+                            d,
+                            c
+                          ]]);
+              }));
 }
 
-function first(arrow) {
-  return /* Run */[(function (param) {
-              var d = param[1];
-              return $great$great$eq(Curry._1(arrow[0], param[0]), (function (c) {
-                            return /* Ok */Block.__(0, [/* tuple */[
-                                        c,
-                                        d
-                                      ]]);
-                          }));
-            })];
-}
+var invalidParse = /* Failed */Block.__(1, [
+    "Parse failed",
+    /* BadRequest400 */15,
+    /* Plain */2
+  ]);
 
-function second(arrow) {
-  return /* Run */[(function (param) {
-              var d = param[0];
-              return $great$great$eq(Curry._1(arrow[0], param[1]), (function (c) {
-                            return /* Ok */Block.__(0, [/* tuple */[
-                                        d,
-                                        c
-                                      ]]);
-                          }));
-            })];
+function $less$pipe$great(f, g, x) {
+  var r1 = Curry._1(f, x);
+  if (r1.tag) {
+    return Curry._1(g, x);
+  } else {
+    return r1[0];
+  }
 }
 
 function both(f, g) {
-  return andThen(second(g), first(f));
+  return (function (param) {
+      return $great$eq$great((function (param) {
+                    return first(f, param);
+                  }), (function (param) {
+                    return second(g, param);
+                  }), param);
+    });
+}
+
+function split(b) {
+  return /* Ok */Block.__(0, [/* tuple */[
+              b,
+              b
+            ]]);
 }
 
 function branch(f, g) {
-  return andThen(both(f, g), /* Run */[(function (b) {
-                  return /* Ok */Block.__(0, [/* tuple */[
-                              b,
-                              b
-                            ]]);
-                })]);
+  var partial_arg = both(f, g);
+  return (function (param) {
+      return $great$eq$great((function (b) {
+                    return /* Ok */Block.__(0, [/* tuple */[
+                                b,
+                                b
+                              ]]);
+                  }), partial_arg, param);
+    });
 }
 
 function merge(computation) {
   return dimap(id, (function (param) {
                 return Curry._1(param[0], param[1]);
-              }), first(computation));
+              }), (function (param) {
+                return first(computation, param);
+              }));
 }
 
 function strong(f, x) {
@@ -156,7 +184,27 @@ function strong(f, x) {
                       ];
               }), (function (param) {
                 return Curry._2(f, param[1], param[0]);
-              }), first(x));
+              }), (function (param) {
+                return first(x, param);
+              }));
+}
+
+function choose(fa, fb, v) {
+  var match = Curry._1(fa, v);
+  if (match.tag) {
+    var res = Curry._1(fb, v);
+    if (res.tag) {
+      return /* Failed */Block.__(1, [
+                res[0],
+                res[1],
+                res[2]
+              ]);
+    } else {
+      return /* Ok */Block.__(0, [/* Left */Block.__(1, [res[0]])]);
+    }
+  } else {
+    return /* Ok */Block.__(0, [/* Right */Block.__(0, [match[0]])]);
+  }
 }
 
 function eitherFunc(f, g, v) {
@@ -168,21 +216,169 @@ function eitherFunc(f, g, v) {
 }
 
 function $pipe$pipe$pipe(fA, gA) {
-  var g = gA[0];
-  var f = fA[0];
-  return /* Run */[(function (param) {
-              return eitherFunc(f, g, param);
-            })];
+  return (function (param) {
+      return eitherFunc(fA, gA, param);
+    });
 }
 
 function $plus$plus$plus(f, g) {
-  return $pipe$pipe$pipe(andThen(/* Run */[(function (v) {
-                      return /* Ok */Block.__(0, [/* Left */Block.__(1, [v])]);
-                    })], f), andThen(/* Run */[(function (v) {
-                      return /* Ok */Block.__(0, [/* Right */Block.__(0, [v])]);
-                    })], g));
+  return (function (param) {
+      return eitherFunc((function (param) {
+                    return $great$eq$great(f, (function (v) {
+                                  return /* Ok */Block.__(0, [/* Left */Block.__(1, [v])]);
+                                }), param);
+                  }), (function (param) {
+                    return $great$eq$great(g, (function (v) {
+                                  return /* Ok */Block.__(0, [/* Right */Block.__(0, [v])]);
+                                }), param);
+                  }), param);
+    });
 }
 
+function combine(f, g, req) {
+  var r1 = Curry._1(f, req);
+  var r2 = Curry._1(g, req);
+  if (r1.tag) {
+    return r2;
+  } else {
+    return /* Ok */Block.__(0, [r1[0]]);
+  }
+}
+
+function selectFirstR(_f) {
+  while(true) {
+    var f = _f;
+    if (f) {
+      var c1 = f[0];
+      if (c1.tag) {
+        _f = f[1];
+        continue ;
+      } else {
+        return /* Ok */Block.__(0, [c1[0]]);
+      }
+    } else {
+      return /* Failed */Block.__(1, [
+                "Not found",
+                /* NotFound404 */19,
+                /* Html */0
+              ]);
+    }
+  };
+}
+
+function selectFirst(_f) {
+  while(true) {
+    var f = _f;
+    if (f) {
+      var match = f[1];
+      var c1 = f[0];
+      if (match) {
+        var c2 = match[0];
+        var result = (function(c1,c2){
+        return function result(param) {
+          return combine(c1, c2, param);
+        }
+        }(c1,c2));
+        _f = /* :: */[
+          result,
+          match[1]
+        ];
+        continue ;
+      } else {
+        return c1;
+      }
+    } else {
+      return (function (param) {
+          return /* Failed */Block.__(1, [
+                    "Not found",
+                    /* NotFound404 */19,
+                    /* Html */0
+                  ]);
+        });
+    }
+  };
+}
+
+function $$parseInt(req) {
+  var match = Chomp$Cause.$$int(req[/* url */0], req[/* offset */1], req[/* length */2]);
+  var newOffset = match[0];
+  if (newOffset <= req[/* offset */1]) {
+    return invalidParse;
+  } else {
+    return /* Ok */Block.__(0, [/* tuple */[
+                match[2],
+                /* record */[
+                  /* url */req[/* url */0],
+                  /* offset */newOffset,
+                  /* length */match[1],
+                  /* queries */req[/* queries */3],
+                  /* contentType */req[/* contentType */4],
+                  /* headers */req[/* headers */5],
+                  /* accept */req[/* accept */6],
+                  /* method */req[/* method */7],
+                  /* rawBody */req[/* rawBody */8],
+                  /* encoding */req[/* encoding */9]
+                ]
+              ]]);
+  }
+}
+
+function parseCustom(checker, req) {
+  var match = Chomp$Cause.segment(req[/* url */0], req[/* offset */1], req[/* length */2]);
+  var endOffset = match[0];
+  if (endOffset === req[/* offset */1]) {
+    return invalidParse;
+  } else {
+    var subStr = $$String.sub(req[/* url */0], req[/* offset */1], endOffset - req[/* offset */1] | 0);
+    var match$1 = Curry._1(checker, subStr);
+    if (match$1 !== undefined) {
+      return /* Ok */Block.__(0, [/* tuple */[
+                  Caml_option.valFromOption(match$1),
+                  /* record */[
+                    /* url */req[/* url */0],
+                    /* offset */match[1],
+                    /* length */match[2],
+                    /* queries */req[/* queries */3],
+                    /* contentType */req[/* contentType */4],
+                    /* headers */req[/* headers */5],
+                    /* accept */req[/* accept */6],
+                    /* method */req[/* method */7],
+                    /* rawBody */req[/* rawBody */8],
+                    /* encoding */req[/* encoding */9]
+                  ]
+                ]]);
+    } else {
+      return invalidParse;
+    }
+  }
+}
+
+function parseExact(str, req) {
+  var match = Chomp$Cause.exact(str, req[/* url */0], req[/* offset */1], req[/* length */2]);
+  var newOffset = match[0];
+  if (newOffset === -1) {
+    return invalidParse;
+  } else {
+    return /* Ok */Block.__(0, [/* record */[
+                /* url */req[/* url */0],
+                /* offset */newOffset,
+                /* length */match[1],
+                /* queries */req[/* queries */3],
+                /* contentType */req[/* contentType */4],
+                /* headers */req[/* headers */5],
+                /* accept */req[/* accept */6],
+                /* method */req[/* method */7],
+                /* rawBody */req[/* rawBody */8],
+                /* encoding */req[/* encoding */9]
+              ]]);
+  }
+}
+
+function requestUsesMethod(ofType, req) {
+  return req[/* method */7] === ofType;
+}
+
+exports.map = map;
 exports.evaluate = evaluate;
 exports.$great$eq$great = $great$eq$great;
 exports.pure = pure;
@@ -193,16 +389,25 @@ exports.id = id;
 exports.lmap = lmap;
 exports.rmap = rmap;
 exports.attempt = attempt;
-exports.andThen = andThen;
-exports.run = run;
 exports.runFailsafe = runFailsafe;
 exports.first = first;
 exports.second = second;
+exports.invalidParse = invalidParse;
+exports.$less$pipe$great = $less$pipe$great;
 exports.both = both;
+exports.split = split;
 exports.branch = branch;
 exports.merge = merge;
 exports.strong = strong;
+exports.choose = choose;
 exports.eitherFunc = eitherFunc;
 exports.$pipe$pipe$pipe = $pipe$pipe$pipe;
 exports.$plus$plus$plus = $plus$plus$plus;
+exports.combine = combine;
+exports.selectFirstR = selectFirstR;
+exports.selectFirst = selectFirst;
+exports.$$parseInt = $$parseInt;
+exports.parseCustom = parseCustom;
+exports.parseExact = parseExact;
+exports.requestUsesMethod = requestUsesMethod;
 /* No side effect */

@@ -89,7 +89,7 @@ let map = (toMap: 'a, route: t('a, 'b)): t('b => 'c, 'c) =>
   Map(toMap, route);
 "user";
 let oneOf = (l: list(t('a, 'b))) => OneOf(l);
-let (-/-) = (a, b) => Slash(a, b);
+let (^/) = (a, b) => Slash(b, a);
 let (==>) = (a, b) => Map(b, a);
 
 module Method = {

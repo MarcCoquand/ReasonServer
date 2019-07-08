@@ -11,11 +11,20 @@ type contenttype('a) =
 
 let id: type a. a => a = x => x;
 
+type uriState =
+  | Unparsed(string)
+  | Parsed(list(string));
+
+type queryState =
+  | Unparsed(string)
+  | NoQuery
+  | Parsed(querySet);
+
 type t = {
   url: string,
   offset: int,
   length: int,
-  queries: option(querySet),
+  queries: queryState,
   contentType: MediaType.t,
   headers: Header.Map.t(string),
   accept: MediaType.t,
@@ -60,73 +69,91 @@ let decodeBody: type a. (accepts(a), t) => option(a) =
     ->Belt.Option.flatMap(_, decoder => decoder(request.rawBody));
 
 let parseQueries = req => {
-  Belt.Option.isSome(req.queries)
-    ? req
-    : {
+  switch (req.queries) {
+  | Unparsed(str) => {
       ...req,
-      url: "",
-      length: 0,
       queries:
-        Some(
-          queries(req.url, req.offset, req.length, Belt.Map.String.empty),
-        ),
-    };
+        Parsed(queries(str, req.offset, req.length, Belt.Map.String.empty)),
+    }
+  | NoQuery => req
+  | Parsed(q) => req
+  };
 };
+let splitAtQuestionMark = Js.String.splitAtMost("?", ~limit=1);
 
-let query: type a. (string, string => option(a), t) => option(a) =
+// let parseUri = (req: t) =>
+//   switch (req.url) {
+//   | Unparsed(str) =>
+//     str
+//     |> Js.String.split("/")
+//     |> Array.to_list
+//     |> (url => {...req, url: Parsed(url)})
+//   | Parsed(r) => req
+//   };
+
+// let route = (request: t) => {
+//   let sep = splitAtQuestionMark(request.url) |> Array.to_list;
+//   switch (sep) {
+//   | [url, queries] =>
+//     Result.Ok(((request.method, parseUri(url)), Unparsed(queries)))
+//   | [url] => Result.Ok(((request.method, parseUri(url)), NoQuery))
+//   | _ => Result.Failed("Not found", Status.NotFound404, MediaType.Html)
+//   };
+// };
+
+let rec query: type a. (string, string => option(a), t) => option(a) =
   (str, parse, req) => {
-    let queries =
-      Belt.Option.getWithDefault(
-        req.queries,
-        queries(req.url, req.offset, req.length, Belt.Map.String.empty),
-      );
-
-    switch (Belt.Map.String.get(queries, str)) {
-    | Some(unparsed) => parse(unparsed)
-    | None => None
+    switch (req.queries) {
+    | Unparsed(str) => query(str, parse, parseQueries(req))
+    | NoQuery => None
+    | Parsed(q) =>
+      switch (Belt.Map.String.get(q, str)) {
+      | Some(unparsed) => parse(unparsed)
+      | None => None
+      }
     };
   };
 
 module Optional = {
   let string = s => Some(s);
   let int = Belt.Int.fromString;
-};
+} /* }*/ /*   rawBody: ""*/ /*   encoding: Encoding.Ascii*/ /*   method: HttpMethod.GET*/;
 
-let mock = (uri, body, method) => {
-  url: uri,
-  offset: 0,
-  length: String.length(uri),
-  queries: None,
-  contentType: MediaType.Plain,
-  headers: Header.Map.empty,
-  accept: MediaType.Plain,
-  method,
-  rawBody: body,
-  encoding: Encoding.Ascii,
-};
+// let mock = (uri, body, method) => {
+//   url: uri,
+//   offset: 0,
+//   length: String.length(uri),
+//   queries: NoQuery,
+//   contentType: MediaType.Plain,
+//   headers: Header.Map.empty,
+//   accept: MediaType.Plain,
+//   method,
+//   rawBody: body,
+//   encoding: Encoding.Ascii,
+// };
 
-let mockPost = (uri, body) => {
-  url: uri,
-  offset: 0,
-  length: String.length(uri),
-  queries: None,
-  contentType: MediaType.Plain,
-  headers: Header.Map.empty,
-  accept: MediaType.Plain,
-  method: HttpMethod.POST,
-  rawBody: body,
-  encoding: Encoding.Ascii,
-};
+// let mockPost = (uri, body) => {
+//   url: uri,
+//   offset: 0,
+//   length: String.length(uri),
+//   queries: NoQuery,
+//   contentType: MediaType.Plain,
+//   headers: Header.Map.empty,
+//   accept: MediaType.Plain,
+//   method: HttpMethod.POST,
+//   rawBody: body,
+//   encoding: Encoding.Ascii,
+// };
 
 let mockGet = uri => {
   url: uri,
   offset: 0,
   length: String.length(uri),
-  queries: None,
+  queries: NoQuery,
   contentType: MediaType.Plain,
   headers: Header.Map.empty,
   accept: MediaType.Plain,
-  method: HttpMethod.GET,
-  rawBody: "",
+  rawBody: "hi",
   encoding: Encoding.Ascii,
+  method: HttpMethod.GET,
 };

@@ -65,51 +65,20 @@ module Book = {
     Result.Ok("Added to database");
 
   module Api = {
-    let fromQuery = asList =>
-      Spec.endpoint(~handler=asList)
-      |> Spec.accept([
-           Spec.Contenttype.json(Json.Encode.list(Encoders.json)),
-           Spec.Contenttype.plain(Encoders.plainList),
-         ])
-      |> Spec.query("year", Belt.Int.fromString)
-      |> Spec.query("author", s => Some(s))
-      |> Spec.success;
-
-    let fromSpecific = (specific, id) =>
-      Spec.endpoint(~handler=specific(id))
-      |> Spec.accept([
-           Spec.Contenttype.json(Encoders.json),
-           Spec.Contenttype.plain(Encoders.plain),
-         ])
-      |> Spec.success;
-
-    let create = addToDatabase =>
-      Spec.endpoint(~handler=addToDatabase)
-      |> Spec.accept([
-           Spec.Contenttype.json(s =>
-             Json.Encode.object_([("message", Json.Encode.string(s))])
-           ),
-           Spec.Contenttype.plain(id),
-         ])
-      |> Spec.contentType([Spec.Accept.json(Decoders.json)])
-      |> Spec.success(~code=Status.Created201);
-    open Uri;
-    let router: Uri.t(Spec.endpoint => Spec.endpoint, Spec.endpoint) =
-      oneOf([
+    open Spec.Router;
+    let router: type a. Spec.Router.t((a, string) => string, string) =
+      is("hello")
+      >- (
         Method.get
-        -/- oneOf([
-              int ==> fromSpecific(mockById),
-              Method.get ==> fromQuery(asList),
-            ]),
-        Method.post ==> create(insert),
-      ]);
+        >- accept([Spec.Contenttype.json(Encoders.json)])
+        >- int
+        |> handler(mockById, Status.Ok200)
+        <|> (
+          Method.post
+          >- contenttype([Spec.Accept.json(Decoders.json)])
+          >- accept([(MediaType.Plain, s => s)])
+          |> handler(insert, Status.Created201)
+        )
+      );
   };
-};
-
-//... Later on
-module Server = {
-  open Uri;
-
-  //Extend with more afterwards, like is("user") -/- User.spec
-  let router = oneOf([is("book") -/- Book.Api.router]);
-};
+} /*... Later o*/;

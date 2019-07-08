@@ -2,9 +2,13 @@
 'use strict';
 
 var Json = require("@glennsl/bs-json/src/Json.bs.js");
+var List = require("bs-platform/lib/js/list.js");
 var $$Array = require("bs-platform/lib/js/array.js");
+var Block = require("bs-platform/lib/js/block.js");
 var Curry = require("bs-platform/lib/js/curry.js");
+var $$String = require("bs-platform/lib/js/string.js");
 var Belt_Map = require("bs-platform/lib/js/belt_Map.js");
+var Uri$Cause = require("./Uri.bs.js");
 var Belt_Option = require("bs-platform/lib/js/belt_Option.js");
 var Caml_option = require("bs-platform/lib/js/caml_option.js");
 var Json_decode = require("@glennsl/bs-json/src/Json_decode.bs.js");
@@ -14,16 +18,36 @@ var Response$Cause = require("./Response.bs.js");
 var MediaType$Cause = require("./MediaType.bs.js");
 var Caml_js_exceptions = require("bs-platform/lib/js/caml_js_exceptions.js");
 
+function cmap(cf, param) {
+  return /* tuple */[
+          param[0],
+          Response$Cause.contramap(cf, param[1]),
+          param[2]
+        ];
+}
+
+function apply(param, a) {
+  return /* tuple */[
+          Curry._1(param[0], a),
+          param[1],
+          param[2]
+        ];
+}
+
+function setReq(reqChanger, param) {
+  return /* tuple */[
+          param[0],
+          param[1],
+          Curry._1(reqChanger, param[2])
+        ];
+}
+
+function complete(param) {
+  return Curry._1(param[1], param[0]);
+}
+
 function id(x) {
   return x;
-}
-
-function $pipe$colon(a, b) {
-  return Result$Cause.andThen(b, a);
-}
-
-function compose(f, g, x) {
-  return Curry._1(f, Curry._1(g, x));
 }
 
 function json(decoder) {
@@ -56,11 +80,11 @@ function plain(encoder) {
         ];
 }
 
-function json$1(encoder) {
+function json$1(jsonEncoder) {
   return /* tuple */[
           /* Json */1,
           (function (a) {
-              return Json.stringify(Curry._1(encoder, a));
+              return Json.stringify(Curry._1(jsonEncoder, a));
             })
         ];
 }
@@ -71,29 +95,33 @@ var Contenttype = /* module */[
 ];
 
 function accept(contentTypes, builder) {
+  var req = builder[2];
+  var res = builder[1];
+  var h = builder[0];
   var makeEncoder = function (req) {
     var partial_arg = Belt_Map.fromArray($$Array.of_list(contentTypes), Request$Cause.MediaComparer);
     return Result$Cause.attempt("Unsupported Media Type: " + MediaType$Cause.toString(req[/* accept */6]), /* UnsupportedMediaType415 */30, /* Plain */2, (function (param) {
                   return Belt_Map.get(partial_arg, param);
                 }), req[/* accept */6]);
   };
-  return Result$Cause.andThen(Result$Cause.merge(Result$Cause.runFailsafe((function (encoder, param) {
-                        return /* tuple */[
-                                param[0],
-                                Response$Cause.contramap(encoder, param[1])
-                              ];
-                      }))), Result$Cause.branch(Result$Cause.run(makeEncoder), builder));
+  var maybeEncoder = makeEncoder(req);
+  return Result$Cause.map((function (encoder) {
+                return /* tuple */[
+                        h,
+                        Response$Cause.setContentType(req[/* accept */6], Response$Cause.contramap(encoder, res)),
+                        req
+                      ];
+              }), maybeEncoder);
 }
 
 function query(parameter, parser, builder) {
-  return Result$Cause.andThen(Result$Cause.merge(Result$Cause.runFailsafe((function (arg, param) {
-                        return /* tuple */[
-                                Curry._1(param[0], arg),
-                                param[1]
-                              ];
-                      }))), Result$Cause.branch(Result$Cause.runFailsafe((function (param) {
-                        return Request$Cause.query(parameter, parser, param);
-                      })), Result$Cause.lmap(Request$Cause.parseQueries, builder)));
+  var match = setReq(Request$Cause.parseQueries, builder);
+  var req = match[2];
+  return /* tuple */[
+          Curry._1(match[0], Request$Cause.query(parameter, parser, req)),
+          match[1],
+          req
+        ];
 }
 
 function contentType(contentTypes, builder) {
@@ -103,38 +131,335 @@ function contentType(contentTypes, builder) {
                   return Request$Cause.decodeBody(acceptsMap, param);
                 }), req);
   };
-  return Result$Cause.andThen(Result$Cause.merge(Result$Cause.runFailsafe((function (arg, param) {
-                        return /* tuple */[
-                                Curry._1(param[0], arg),
-                                param[1]
-                              ];
-                      }))), Result$Cause.branch(Result$Cause.run(decodeBody), builder));
-}
-
-function endpoint(handler) {
-  return Result$Cause.runFailsafe((function (request) {
+  var req = builder[2];
+  var res = builder[1];
+  var h = builder[0];
+  return Result$Cause.map((function (body) {
                 return /* tuple */[
-                        handler,
-                        Response$Cause.lift
+                        Curry._1(h, body),
+                        res,
+                        req
                       ];
-              }));
+              }), decodeBody(req));
 }
 
 function success($staropt$star, builder) {
   var code = $staropt$star !== undefined ? $staropt$star : /* Ok200 */0;
   return Result$Cause.rmap((function (param) {
-                return Response$Cause.setCode(code, param);
-              }), Result$Cause.andThen(Result$Cause.run(id), Result$Cause.andThen(Result$Cause.merge(Result$Cause.runFailsafe(Response$Cause.encodeResult)), builder)));
+                return /* tuple */[
+                        param[0],
+                        Response$Cause.setCode(code, param[1])
+                      ];
+              }), builder);
 }
 
+function withParams(spec, uri) {
+  return Uri$Cause.map((function (args) {
+                return Result$Cause.rmap((function (param) {
+                              return /* tuple */[
+                                      Curry._1(param[0], args),
+                                      param[1]
+                                    ];
+                            }), spec);
+              }), uri);
+}
+
+function id$1(x) {
+  return x;
+}
+
+function concatMap(f, l) {
+  return List.concat(List.map(f, l));
+}
+
+function mapHelp(f, state) {
+  return /* tuple */[
+          Curry._1(f, (function (param) {
+                  return Result$Cause.first(state, param);
+                })),
+          (function (param) {
+              return Result$Cause.second(state, param);
+            })
+        ];
+}
+
+function makeResponse(code, param) {
+  return Response$Cause.attempt(Response$Cause.setCode(code, param[1]))(param[0]);
+}
+
+function attempt(route, state) {
+  var request = state[2];
+  var response = state[1];
+  var handler = state[0];
+  if (typeof route === "number") {
+    if (route === 0) {
+      return /* Ok */Block.__(0, [state]);
+    } else {
+      return Result$Cause.map((function (param) {
+                    return /* tuple */[
+                            Curry._1(handler, param[0]),
+                            response,
+                            param[1]
+                          ];
+                  }), Result$Cause.$$parseInt(request));
+    }
+  } else {
+    switch (route.tag | 0) {
+      case 0 : 
+          return Result$Cause.map((function (newReq) {
+                        return /* tuple */[
+                                handler,
+                                response,
+                                newReq
+                              ];
+                      }), Result$Cause.parseExact(route[0], request));
+      case 1 : 
+          return Result$Cause.map((function (param) {
+                        return /* tuple */[
+                                Curry._1(handler, param[0]),
+                                response,
+                                param[1]
+                              ];
+                      }), Result$Cause.parseCustom(route[0], request));
+      case 2 : 
+          var after = route[1];
+          return Result$Cause.$great$great$eq(attempt(route[0], state), (function (param) {
+                        return attempt(after, param);
+                      }));
+      case 3 : 
+          var match = Result$Cause.requestUsesMethod(route[0], request);
+          if (match) {
+            return /* Ok */Block.__(0, [state]);
+          } else {
+            return Result$Cause.invalidParse;
+          }
+      case 4 : 
+          return accept(route[0], state);
+      case 5 : 
+          return contentType(route[0], state);
+      
+    }
+  }
+}
+
+function build(route, param) {
+  var request = param[2];
+  var response = param[1];
+  var handler = param[0];
+  if (typeof route !== "number") {
+    if (route.tag === 6) {
+      var code = route[0];
+      return Result$Cause.map((function (param) {
+                    return makeResponse(code, param);
+                  }), attempt(route[2], /* tuple */[
+                      route[1],
+                      response,
+                      request
+                    ]));
+    } else {
+      var r1 = build(route[0], /* tuple */[
+            handler,
+            response,
+            request
+          ]);
+      var r2 = build(route[1], /* tuple */[
+            handler,
+            response,
+            request
+          ]);
+      if (r1.tag) {
+        return r2;
+      } else {
+        return /* Ok */Block.__(0, [r1[0]]);
+      }
+    }
+  }
+  
+}
+
+var completeAttempt = attempt;
+
+function $less$pipe$great(expr1, expr2) {
+  return /* Alternative */Block.__(7, [
+            expr1,
+            expr2
+          ]);
+}
+
+function is(str) {
+  return /* Exact */Block.__(0, [str]);
+}
+
+var text = /* Custom */Block.__(1, [(function (value) {
+        return value;
+      })]);
+
+function custom(f) {
+  return /* Custom */Block.__(1, [f]);
+}
+
+function $great$neg(a, b) {
+  return /* Slash */Block.__(2, [
+            b,
+            a
+          ]);
+}
+
+function handler(b, code, a) {
+  return /* Map */Block.__(6, [
+            code,
+            b,
+            a
+          ]);
+}
+
+function contenttype(l) {
+  return /* ContentType */Block.__(5, [l]);
+}
+
+function accept$1(l) {
+  return /* Accept */Block.__(4, [l]);
+}
+
+var Method_000 = /* get : Method */Block.__(3, [/* GET */0]);
+
+var Method_001 = /* post : Method */Block.__(3, [/* POST */1]);
+
+var Method_002 = /* delete : Method */Block.__(3, [/* DELETE */4]);
+
+var Method_003 = /* put : Method */Block.__(3, [/* PUT */2]);
+
+var Method_004 = /* update : Method */Block.__(3, [/* UPDATE */3]);
+
+var Method_005 = /* head : Method */Block.__(3, [/* HEAD */5]);
+
+var Method_006 = /* option : Method */Block.__(3, [/* OPTION */6]);
+
+var Method_007 = /* connect : Method */Block.__(3, [/* CONNECT */7]);
+
+var Method_008 = /* trace : Method */Block.__(3, [/* TRACE */8]);
+
+var Method_009 = /* patch : Method */Block.__(3, [/* PATCH */9]);
+
+var Method = /* module */[
+  Method_000,
+  Method_001,
+  Method_002,
+  Method_003,
+  Method_004,
+  Method_005,
+  Method_006,
+  Method_007,
+  Method_008,
+  Method_009
+];
+
+function parseHelp(router, req) {
+  return attempt(router, /* tuple */[
+              id$1,
+              Response$Cause.$$default,
+              req
+            ]);
+}
+
+function parse(route, req) {
+  var firstDropped = $$String.sub(req[/* url */0], 1, req[/* url */0].length - 1 | 0);
+  var reqPrim_001 = /* offset */req[/* offset */1];
+  var reqPrim_002 = /* length */req[/* length */2] - 1 | 0;
+  var reqPrim_003 = /* queries */req[/* queries */3];
+  var reqPrim_004 = /* contentType */req[/* contentType */4];
+  var reqPrim_005 = /* headers */req[/* headers */5];
+  var reqPrim_006 = /* accept */req[/* accept */6];
+  var reqPrim_007 = /* method */req[/* method */7];
+  var reqPrim_008 = /* rawBody */req[/* rawBody */8];
+  var reqPrim_009 = /* encoding */req[/* encoding */9];
+  var reqPrim = /* record */[
+    /* url */firstDropped,
+    reqPrim_001,
+    reqPrim_002,
+    reqPrim_003,
+    reqPrim_004,
+    reqPrim_005,
+    reqPrim_006,
+    reqPrim_007,
+    reqPrim_008,
+    reqPrim_009
+  ];
+  var res = parseHelp(route, reqPrim);
+  if (res.tag) {
+    return Response$Cause.error(res[0], res[1], res[2]);
+  } else {
+    var match = res[0];
+    return Curry._1(match[1], match[0]);
+  }
+}
+
+function id$2(x) {
+  return x;
+}
+
+function primitiveParse(router, uri) {
+  var firstDropped = $$String.sub(uri, 1, uri.length - 1 | 0);
+  var request = Request$Cause.mockGet(uri);
+  return Result$Cause.toOption(Result$Cause.map((function (param) {
+                    var h = param[0];
+                    return /* tuple */[
+                            h,
+                            Curry._1(param[1], h)
+                          ];
+                  }), attempt(router, /* tuple */[
+                      id$2,
+                      Response$Cause.lift,
+                      /* record */[
+                        /* url */firstDropped,
+                        /* offset */request[/* offset */1],
+                        /* length */uri.length - 1 | 0,
+                        /* queries */request[/* queries */3],
+                        /* contentType */request[/* contentType */4],
+                        /* headers */request[/* headers */5],
+                        /* accept */request[/* accept */6],
+                        /* method */request[/* method */7],
+                        /* rawBody */request[/* rawBody */8],
+                        /* encoding */request[/* encoding */9]
+                      ]
+                    ])));
+}
+
+var Router = /* module */[
+  /* concatMap */concatMap,
+  /* mapHelp */mapHelp,
+  /* makeResponse */makeResponse,
+  /* attempt */attempt,
+  /* build */build,
+  /* completeAttempt */completeAttempt,
+  /* <|> */$less$pipe$great,
+  /* top : Top */0,
+  /* is */is,
+  /* int : Integer */1,
+  /* text */text,
+  /* custom */custom,
+  /* >- */$great$neg,
+  /* handler */handler,
+  /* contenttype */contenttype,
+  /* accept */accept$1,
+  /* Method */Method,
+  /* parseHelp */parseHelp,
+  /* parse */parse,
+  /* id */id$2,
+  /* primitiveParse */primitiveParse
+];
+
+exports.cmap = cmap;
+exports.apply = apply;
+exports.setReq = setReq;
+exports.complete = complete;
 exports.id = id;
-exports.$pipe$colon = $pipe$colon;
-exports.compose = compose;
 exports.Accept = Accept;
 exports.Contenttype = Contenttype;
 exports.accept = accept;
 exports.query = query;
 exports.contentType = contentType;
-exports.endpoint = endpoint;
 exports.success = success;
-/* Request-Cause Not a pure module */
+exports.withParams = withParams;
+exports.Router = Router;
+/* Uri-Cause Not a pure module */

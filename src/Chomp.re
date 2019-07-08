@@ -87,7 +87,7 @@ let extractValue = (str, start, upto) =>
 // need to chomp from right to left.
 
 // chomps from right to left instead of left to right.
-let rec segmentReverse = (url, offset, length) =>
+let segmentReverse = (url, offset, length) =>
   if (length == 0) {
     (offset, offset, length);
   } else if (url.[offset] == '/'

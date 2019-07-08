@@ -186,10 +186,10 @@ function oneOf(l) {
   return /* OneOf */Block.__(4, [l]);
 }
 
-function $neg$slash$neg(a, b) {
+function $caret$slash(a, b) {
   return /* Slash */Block.__(2, [
-            a,
-            b
+            b,
+            a
           ]);
 }
 
@@ -320,7 +320,7 @@ exports.text = text;
 exports.custom = custom;
 exports.map = map;
 exports.oneOf = oneOf;
-exports.$neg$slash$neg = $neg$slash$neg;
+exports.$caret$slash = $caret$slash;
 exports.$eq$eq$great = $eq$eq$great;
 exports.Method = Method;
 exports.parseHelp = parseHelp;

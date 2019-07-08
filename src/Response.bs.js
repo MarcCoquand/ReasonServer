@@ -23,101 +23,207 @@ function error($staropt$star, $staropt$star$1, $staropt$star$2) {
         ];
 }
 
-function map(f, response) {
-  return /* record */[
-          /* code */response[/* code */0],
-          /* headers */response[/* headers */1],
-          /* contentType */response[/* contentType */2],
-          /* body */Curry._1(f, response[/* body */3]),
-          /* encoding */response[/* encoding */4]
-        ];
-}
-
 function contramap(cf, response) {
-  var partial_arg = response[/* body */3];
-  return /* record */[
-          /* code */response[/* code */0],
-          /* headers */response[/* headers */1],
-          /* contentType */response[/* contentType */2],
-          /* body */(function (param) {
-              return Curry._1(partial_arg, Curry._1(cf, param));
-            }),
-          /* encoding */response[/* encoding */4]
-        ];
+  return (function (param) {
+      return Curry._1(response, Curry._1(cf, param));
+    });
 }
 
-function encode(value, response) {
-  return /* record */[
-          /* code */response[/* code */0],
-          /* headers */response[/* headers */1],
-          /* contentType */response[/* contentType */2],
-          /* body */Curry._1(response[/* body */3], value),
-          /* encoding */response[/* encoding */4]
-        ];
+function contraError(error, res) {
+  return (function (param) {
+      return Curry._1(res, error);
+    });
 }
 
-function encodeResult(result, response) {
-  if (result.tag) {
-    return /* Failed */Block.__(1, [
-              result[0],
-              result[1],
-              result[2]
-            ]);
-  } else {
-    return /* Ok */Block.__(0, [encode(result[0], response)]);
-  }
+function contramapH(cf, h) {
+  return (function (param) {
+      return Curry._1(h, Curry._1(cf, param));
+    });
 }
 
 function id(x) {
   return x;
 }
 
-var lift_001 = /* headers */Header$Cause.$$Map[/* empty */0];
+function set(modifier, response) {
+  switch (modifier.tag | 0) {
+    case 0 : 
+        return /* record */[
+                /* code */modifier[0],
+                /* headers */response[/* headers */1],
+                /* contentType */response[/* contentType */2],
+                /* body */response[/* body */3],
+                /* encoding */response[/* encoding */4]
+              ];
+    case 1 : 
+        return /* record */[
+                /* code */response[/* code */0],
+                /* headers */modifier[0],
+                /* contentType */response[/* contentType */2],
+                /* body */response[/* body */3],
+                /* encoding */response[/* encoding */4]
+              ];
+    case 2 : 
+        return /* record */[
+                /* code */response[/* code */0],
+                /* headers */response[/* headers */1],
+                /* contentType */response[/* contentType */2],
+                /* body */response[/* body */3],
+                /* encoding */modifier[0]
+              ];
+    case 3 : 
+        return /* record */[
+                /* code */response[/* code */0],
+                /* headers */response[/* headers */1],
+                /* contentType */modifier[0],
+                /* body */response[/* body */3],
+                /* encoding */response[/* encoding */4]
+              ];
+    
+  }
+}
 
-var lift = /* record */[
-  /* code : Ok200 */0,
-  lift_001,
-  /* contentType : Plain */2,
-  /* body */id,
-  /* encoding : Ascii */0
-];
+function $$default(x) {
+  return /* record */[
+          /* code : Ok200 */0,
+          /* headers */Header$Cause.$$Map[/* empty */0],
+          /* contentType : Plain */2,
+          /* body */x,
+          /* encoding : Ascii */0
+        ];
+}
+
+function modifyField(cf, fb, a) {
+  var match = Curry._1(cf, a);
+  var response = Curry._1(fb, match[0]);
+  return set(match[1], response);
+}
 
 function setCode(code, response) {
-  return /* record */[
-          /* code */code,
-          /* headers */response[/* headers */1],
-          /* contentType */response[/* contentType */2],
-          /* body */response[/* body */3],
-          /* encoding */response[/* encoding */4]
-        ];
+  return (function (param) {
+      return modifyField((function (r) {
+                    return /* tuple */[
+                            r,
+                            /* Code */Block.__(0, [code])
+                          ];
+                  }), response, param);
+    });
 }
 
 function setContentType(mediaType, response) {
-  return /* record */[
-          /* code */response[/* code */0],
-          /* headers */response[/* headers */1],
-          /* contentType */mediaType,
-          /* body */response[/* body */3],
-          /* encoding */response[/* encoding */4]
-        ];
+  return (function (param) {
+      return modifyField((function (res) {
+                    return /* tuple */[
+                            res,
+                            /* ContentType */Block.__(3, [mediaType])
+                          ];
+                  }), response, param);
+    });
 }
 
-var setEncoder = map;
+function resultToEither(res) {
+  if (res.tag) {
+    return /* Left */Block.__(1, [error(res[0], res[1], res[2])]);
+  } else {
+    return /* Right */Block.__(0, [res[0]]);
+  }
+}
+
+function choose(chooser, resp, encoder2, a) {
+  var res = Curry._1(chooser, a);
+  if (res.tag) {
+    return Curry._1(encoder2, res[0]);
+  } else {
+    return Curry._1(resp, res[0]);
+  }
+}
+
+function divide(f, fb, fc, a) {
+  var match = Curry._1(f, a);
+  var resB = match[1];
+  var resA = match[0];
+  if (resA.tag) {
+    if (resB.tag) {
+      return error(resB[0], resB[1], resB[2]);
+    } else {
+      return Curry._1(fc, resB[0]);
+    }
+  } else {
+    return Curry._1(fb, resA[0]);
+  }
+}
+
+function attempt(response) {
+  return (function (param) {
+      return choose(resultToEither, response, (function (err) {
+                    return err;
+                  }), param);
+    });
+}
+
+function contraApply(r, tb, a) {
+  if (r.tag) {
+    return error(r[0], r[1], r[2]);
+  } else {
+    return Curry._1(tb, Curry._1(r[0], a));
+  }
+}
+
+function fromResult(res) {
+  if (res.tag) {
+    return error(res[0], res[1], res[2]);
+  } else {
+    return res[0];
+  }
+}
+
+function applyHandler(handlerResult, code, res) {
+  return (function (param, param$1) {
+      return choose(handlerResult, (function (param) {
+                    return modifyField((function (a) {
+                                  return /* tuple */[
+                                          a,
+                                          /* Code */Block.__(0, [code])
+                                        ];
+                                }), res, param);
+                  }), param, param$1);
+    });
+}
+
+function encode(value, response) {
+  return Curry._1(response, value);
+}
 
 function json(encoder, response) {
-  return setContentType(/* Json */1, contramap(encoder, contramap(Json.stringify, response)));
+  return setContentType(/* Json */1, (function (param) {
+                var param$1 = Curry._1(encoder, param);
+                return Curry._1(response, Json.stringify(param$1));
+              }));
 }
+
+var lift = id;
 
 exports.compose = compose;
 exports.error = error;
-exports.map = map;
 exports.contramap = contramap;
-exports.encode = encode;
-exports.encodeResult = encodeResult;
+exports.contraError = contraError;
+exports.contramapH = contramapH;
 exports.id = id;
+exports.set = set;
 exports.lift = lift;
+exports.$$default = $$default;
+exports.default = $$default;
+exports.__esModule = true;
+exports.modifyField = modifyField;
 exports.setCode = setCode;
 exports.setContentType = setContentType;
-exports.setEncoder = setEncoder;
+exports.resultToEither = resultToEither;
+exports.choose = choose;
+exports.divide = divide;
+exports.attempt = attempt;
+exports.contraApply = contraApply;
+exports.fromResult = fromResult;
+exports.applyHandler = applyHandler;
+exports.encode = encode;
 exports.json = json;
 /* Header-Cause Not a pure module */

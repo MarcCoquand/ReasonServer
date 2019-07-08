@@ -21,7 +21,7 @@ Jest.describe("Parses primitives", (function (param) {
         Jest.test("text", (function (param) {
                 return Jest.Expect[/* toEqual */12]("hello", Jest.Expect[/* expect */0](Uri$Cause.primitiveParse(textRouter, "/hello")));
               }));
-        var slashRouter = Uri$Cause.$eq$eq$great(Uri$Cause.$great$neg(Uri$Cause.is("hello"), Uri$Cause.is("world")), /* Arrived */0);
+        var slashRouter = Uri$Cause.$eq$eq$great(Uri$Cause.$caret$slash(Uri$Cause.is("hello"), Uri$Cause.is("world")), /* Arrived */0);
         Jest.test("slash", (function (param) {
                 return Jest.Expect[/* toEqual */12](/* Arrived */0, Jest.Expect[/* expect */0](Uri$Cause.primitiveParse(slashRouter, "/hello/world")));
               }));
